@@ -1,0 +1,18 @@
+# MANYA backend dependencies (Python 3.13+)
+Django>=5.2,<5.3
+djangorestframework>=3.16,<3.17
+django-cors-headers>=4.7,<5
+drf-spectacular>=0.28,<0.29
+dj-database-url>=2.3,<3
+python-dotenv>=1.0,<2
+requests>=2.32,<3
+psycopg[binary]>=3.2,<4
+
+# Testing / quality
+pytest>=8.3,<9
+pytest-django>=4.9,<5
+ruff>=0.9
+black>=25.1
+
+# Production WSGI (Linux/macOS only; not used on Windows)
+gunicorn>=23.0,<24

@@ -1,0 +1,168 @@
+"""Serializers for the legal app (public, verified data only)."""
+
+from rest_framework import serializers
+
+from apps.legal.models import LegalCategory, LegalContent, LegalSource, LegalTopic
+from apps.legal.services.content_query import (
+    available_languages_for_topic,
+    get_verified_content,
+)
+
+
+class SourcePublicSerializer(serializers.ModelSerializer):
+    status_message = serializers.CharField(
+        source="status_display_message", read_only=True
+    )
+
+    class Meta:
+        model = LegalSource
+        fields = [
+            "id",
+            "name",
+            "organization",
+            "source_type",
+            "url",
+            "document_title",
+            "document_identifier",
+            "chapter",
+            "publication_date",
+            "effective_date",
+            "version",
+            "jurisdiction",
+            "status",
+            "status_message",
+            "authority_level",
+            "is_authoritative",
+        ]
+
+
+class LegalContentPublicSerializer(serializers.ModelSerializer):
+    """Server only VERIFIED content through this serializer."""
+
+    language_code = serializers.CharField(source="language.code", read_only=True)
+    language_name = serializers.CharField(source="language.name", read_only=True)
+    source = SourcePublicSerializer(read_only=True)
+
+    class Meta:
+        model = LegalContent
+        fields = [
+            "title",
+            "summary",
+            "rights_information",
+            "what_this_means",
+            "next_steps",
+            "documents_required",
+            "source_title",
+            "source_url",
+            "legal_reference",
+            "section_reference",
+            "last_verified",
+            "disclaimer",
+            "language_code",
+            "language_name",
+            "source",
+        ]
+
+
+class LegalCategorySerializer(serializers.ModelSerializer):
+    topic_count = serializers.IntegerField(read_only=True, default=0)
+
+    class Meta:
+        model = LegalCategory
+        fields = ["id", "name", "slug", "description", "display_order", "topic_count"]
+
+
+class LegalTopicBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LegalTopic
+        fields = ["id", "name", "slug", "description", "display_order"]
+
+
+class LegalCategoryDetailSerializer(serializers.ModelSerializer):
+    """Category detail with its active topics and their language availability."""
+
+    topics = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LegalCategory
+        fields = ["id", "name", "slug", "description", "topics"]
+
+    def get_topics(self, category):
+        topics = category.topics.filter(is_active=True)
+        return [
+            {
+                "name": topic.name,
+                "slug": topic.slug,
+                "description": topic.description,
+                "available_languages": available_languages_for_topic(topic),
+            }
+            for topic in topics
+        ]
+
+
+class LegalTopicDetailSerializer(serializers.Serializer):
+    """Topic with the requested-language content resolved from verified records."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    slug = serializers.SlugField()
+    description = serializers.CharField()
+    category = serializers.SerializerMethodField()
+    content = serializers.SerializerMethodField()
+    missing_translation = serializers.SerializerMethodField()
+    available_languages = serializers.SerializerMethodField()
+
+    def get_category(self, topic):
+        return {
+            "name": topic.category.name,
+            "slug": topic.category.slug,
+        }
+
+    def get_content(self, topic):
+        request = self.context["request"]
+        lang_code = self.context.get("language_code") or (
+            request.query_params.get("lang") or "en"
+        )
+        content = get_verified_content(topic, lang_code)
+        if content is None and lang_code != "en":
+            content = get_verified_content(topic, "en")
+        if content is None:
+            return None
+        return LegalContentPublicSerializer(content, context=self.context).data
+
+    def get_missing_translation(self, obj):
+        lang_code = self.context.get("language_code") or "en"
+        return get_verified_content(obj, lang_code) is None
+
+    def get_available_languages(self, obj):
+        return available_languages_for_topic(obj)
+
+
+class LegalTopicListSerializer(serializers.ModelSerializer):
+    category = serializers.CharField(source="category.slug", read_only=True)
+    available_languages = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LegalTopic
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "category",
+            "available_languages",
+        ]
+
+    def get_available_languages(self, obj):
+        return available_languages_for_topic(obj)
+
+
+class SearchResultSerializer(serializers.Serializer):
+    """Shape of one search result (category or topic)."""
+
+    kind = serializers.CharField()  # "category" | "topic"
+    category_slug = serializers.CharField()
+    category_name = serializers.CharField()
+    slug = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField(required=False, default="")
