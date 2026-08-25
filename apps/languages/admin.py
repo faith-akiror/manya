@@ -37,4 +37,4 @@ class UIMessageAdmin(admin.ModelAdmin):
     list_display = ("key", "language", "text")
     list_filter = ("language",)
     search_fields = ("key", "text")
-    autocomplete_fields = ("language",)
+    ordering = ("language__display_order", "key")
