@@ -47,6 +47,10 @@ DEFAULT_ENGLISH = {
     "sms_sent": "We have sent the information to your phone by SMS.",
     "sms_failed": "We could not send the SMS right now. Please try again later.",
     "exit": "Thank you for using MANYA.",
+    "telephone": "Tel",
+    "voice_coming_soon": (
+        "MANYA Voice is coming soon. Please use SMS or the website."
+    ),
 }
 
 

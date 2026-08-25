@@ -1,20 +1,13 @@
-"""Dynamic, database-driven languages for MANYA.
+"""Database-driven language and translation models for MANYA."""
 
-Languages are NEVER hardcoded. To add a language an administrator simply
-creates a Language record (Django admin) — the website, APIs and USSD flows
-then automatically serve it.
-"""
-
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
 
 
 class Language(models.Model):
-    """A spoken language MANYA supports.
-
-    ``code`` uses the ISO 639-3 convention (``en``, ``lg``, ``teo``, ``ach``) so
-    that codes remain consistent as MANYA grows to 50+ languages.
-    """
+    """A spoken language MANYA supports."""
 
     code = models.CharField("ISO language code", max_length=10, unique=True)
     name = models.CharField("Language name", max_length=100)
@@ -93,3 +86,55 @@ class UIMessage(models.Model):
 
     def __str__(self):
         return f"{self.language.code}:{self.key}"
+
+
+class ContentTranslation(models.Model):
+    """Generic verified translation of database content.
+
+    MANYA can translate legal categories, topics, legal content, referrals,
+    policies, and future models without changing Python code when a new
+    language is added.
+    """
+
+    language = models.ForeignKey(
+        Language, on_delete=models.CASCADE, related_name="content_translations"
+    )
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, related_name="manya_translations"
+    )
+    object_id = models.PositiveBigIntegerField()
+    content_object = GenericForeignKey("content_type", "object_id")
+    field = models.CharField(
+        max_length=100,
+        help_text="Database field being translated, e.g. name, rights_information.",
+    )
+    text = models.TextField()
+    is_verified = models.BooleanField(
+        default=False,
+        help_text="Only verified translations should be shown publicly.",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Content translation"
+        verbose_name_plural = "Content translations"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["language", "content_type", "object_id", "field"],
+                name="unique_content_translation",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["content_type", "object_id", "language", "field"])
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.language.code}:"
+            f"{self.content_type.app_label}."
+            f"{self.content_type.model}:"
+            f"{self.object_id}:"
+            f"{self.field}"
+        )

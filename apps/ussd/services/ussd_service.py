@@ -1,7 +1,8 @@
 """USSD state machine for MANYA.
 
 The flow reads the SAME verified legal database the website uses, and its menus
-are localized via the database-driven UI message table (UIMessage).
+are localized via the database-driven UI message table (UIMessage) and
+verified ContentTranslation records.
 
 Africa's Talking message framing:
     CON <menu>      -> session continues (user can input a number)
@@ -15,22 +16,17 @@ traces ever reach the handset.
 import logging
 
 from apps.languages.models import Language
-from apps.languages.services.ui_translations import UITranslationService
 from apps.legal.models import LegalCategory, LegalTopic
 from apps.legal.services.content_query import get_verified_content
 from apps.messaging.services.africastalking_sms import send_infosms
 from apps.ussd.models import UssdSession
+from apps.ussd.services.translation import content, ui
 
 logger = logging.getLogger(__name__)
 
 
 class UssdError(Exception):
     """A controlled USSD routing failure."""
-
-
-def _lang(session, key):
-    """Resolve a UI string for the session's language with English fallback."""
-    return UITranslationService.get(key, session.language_code)
 
 
 class UssdService:
@@ -106,7 +102,7 @@ class UssdService:
             if idx < 0 or idx >= len(languages):
                 raise ValueError
         except ValueError:
-            return self._error_retry(session, _lang(session, "invalid_choice"))
+            return self._error_retry(session, ui(session, "invalid_choice"))
         language = languages[idx]
         session.language_code = language.code
         session.menu = "main"
@@ -116,8 +112,8 @@ class UssdService:
 
     def _menu_language(self, session, first=False):
         languages = list(Language.active_public())
-        lines = [_lang(session, "welcome"), _lang(session, "tagline")]
-        lines.append(_lang(session, "change_language_prompt"))
+        lines = [ui(session, "welcome"), ui(session, "tagline")]
+        lines.append(ui(session, "change_language_prompt"))
         for i, language in enumerate(languages, start=1):
             lines.append(f"{i}. {language.native_name or language.name}")
         session.menu = "start" if first else "choose_language"
@@ -144,26 +140,27 @@ class UssdService:
             return self._menu_language(session, first=False)
         if choice in ("0", "99"):
             return self._farewell(session)
-        return self._error_retry(session, _lang(session, "invalid_choice"))
+        return self._error_retry(session, ui(session, "invalid_choice"))
 
     def _menu_main(self, session):
-        lines = [_lang(session, "welcome")]
-        lines.append("1. " + _lang(session, "i_have_a_problem"))
-        lines.append("2. " + _lang(session, "know_my_rights"))
-        lines.append("3. " + _lang(session, "find_legal_help"))
-        lines.append("4. " + _lang(session, "policy_updates"))
-        lines.append("5. " + _lang(session, "change_language"))
+        lines = [ui(session, "welcome")]
+        lines.append("1. " + ui(session, "i_have_a_problem"))
+        lines.append("2. " + ui(session, "know_my_rights"))
+        lines.append("3. " + ui(session, "find_legal_help"))
+        lines.append("4. " + ui(session, "policy_updates"))
+        lines.append("5. " + ui(session, "change_language"))
         session.menu = "main"
         return "CON " + "\n".join(lines)
 
     def _menu_awareness(self, session):
         """'Know my rights' - reads the same verified database."""
-        content = self._current_topic_content(session)
-        if not content:
-            return "END " + _lang(session, "no_verified_info")
-        lines = [_lang(session, "understand_my_rights")]
-        if content.rights_information:
-            lines.append(content.rights_information)
+        legal_content = self._current_topic_content(session)
+        if not legal_content:
+            return "END " + ui(session, "no_verified_info")
+        rights = content(session, legal_content, "rights_information")
+        if not rights:
+            return self._missing_section(session)
+        lines = [ui(session, "understand_my_rights"), rights]
         session.menu = "details"
         session.data["view"] = "rights"
         return "CON " + "\n".join(lines)
@@ -171,45 +168,49 @@ class UssdService:
     # ------------------------------------------------------------------
     # Categories -> issues -> topic options
     def _menu_categories(self, session):
-        categories = list(LegalCategory.objects.filter(is_active=True))
-        lines = [_lang(session, "choose_issue")]
-        for i, cat in enumerate(categories, start=1):
-            lines.append(f"{i}. {cat.name}")
+        categories = list(
+            LegalCategory.objects.filter(is_active=True).order_by("display_order", "name")
+        )
+        lines = [ui(session, "choose_issue")]
+        for i, category in enumerate(categories, start=1):
+            lines.append(f"{i}. {content(session, category, 'name')}")
         session.menu = "categories"
         return "CON " + "\n".join(lines)
 
     def _menu_issues(self, session, category):
         topics = list(
             LegalTopic.objects.filter(category=category, is_active=True).order_by(
-                "display_order"
+                "display_order", "name"
             )
         )
-        lines = [category.name]
+        lines = [content(session, category, "name")]
         for i, topic in enumerate(topics, start=1):
-            lines.append(f"{i}. {topic.name}")
+            lines.append(f"{i}. {content(session, topic, 'name')}")
         session.menu = "issues"
         return "CON " + "\n".join(lines)
 
     def _menu_topic_options(self, session, topic):
-        lines = [topic.name]
-        lines.append("1. " + _lang(session, "understand_my_rights"))
-        lines.append("2. " + _lang(session, "what_should_i_do"))
-        lines.append("3. " + _lang(session, "documents_i_need"))
-        lines.append("4. " + _lang(session, "find_legal_help"))
-        lines.append("5. " + _lang(session, "send_sms"))
-        lines.append("6. " + _lang(session, "listen"))
-        lines.append("0. " + _lang(session, "back"))
+        lines = [content(session, topic, "name")]
+        lines.append("1. " + ui(session, "understand_my_rights"))
+        lines.append("2. " + ui(session, "what_should_i_do"))
+        lines.append("3. " + ui(session, "documents_i_need"))
+        lines.append("4. " + ui(session, "find_legal_help"))
+        lines.append("5. " + ui(session, "send_sms"))
+        lines.append("6. " + ui(session, "listen"))
+        lines.append("0. " + ui(session, "back"))
         session.menu = "details"
         return "CON " + "\n".join(lines)
 
     def _handle_categories(self, session, text):
-        categories = list(LegalCategory.objects.filter(is_active=True))
+        categories = list(
+            LegalCategory.objects.filter(is_active=True).order_by("display_order", "name")
+        )
         try:
             idx = int(text) - 1
             if idx < 0 or idx >= len(categories):
                 raise ValueError
         except ValueError:
-            return self._error_retry(session, _lang(session, "invalid_choice"))
+            return self._error_retry(session, ui(session, "invalid_choice"))
         category = categories[idx]
         session.data["user_selection"] = [category.slug]
         return self._menu_issues(session, category)
@@ -217,10 +218,10 @@ class UssdService:
     def _handle_issues(self, session, text):
         category = self._selected_category(session)
         if category is None:
-            return self._error_retry(session, _lang(session, "invalid_choice"))
+            return self._error_retry(session, ui(session, "invalid_choice"))
         topics = list(
             LegalTopic.objects.filter(category=category, is_active=True).order_by(
-                "display_order"
+                "display_order", "name"
             )
         )
         try:
@@ -228,7 +229,7 @@ class UssdService:
             if idx < 0 or idx >= len(topics):
                 raise ValueError
         except ValueError:
-            return self._error_retry(session, _lang(session, "invalid_choice"))
+            return self._error_retry(session, ui(session, "invalid_choice"))
         topic = topics[idx]
         session.data["user_selection"] = [category.slug, topic.slug]
         return self._menu_topic_options(session, topic)
@@ -236,53 +237,62 @@ class UssdService:
     def _handle_details(self, session, text):
         topic = self._selected_topic(session)
         if topic is None:
-            return self._error_retry(session, _lang(session, "invalid_choice"))
-        content = get_verified_content(topic, session.language_code)
-        if content is None and session.language_code != "en":
-            content = get_verified_content(topic, "en")
+            return self._error_retry(session, ui(session, "invalid_choice"))
+        legal_content = get_verified_content(topic, session.language_code)
+        if legal_content is None and session.language_code != "en":
+            legal_content = get_verified_content(topic, "en")
 
         if text == "1":
-            return self._show_rights(session, content)
+            return self._show_rights(session, legal_content)
         if text == "2":
-            return self._show_next_steps(session, content)
+            return self._show_next_steps(session, legal_content)
         if text == "3":
-            return self._show_documents(session, content)
+            return self._show_documents(session, legal_content)
         if text == "4":
             return self._menu_referrals_for_topic(session, topic)
         if text == "5":
-            return self._send_sms(session, content)
+            return self._send_sms(session, legal_content)
         if text == "6":
             return self._voice_prompt(session)
         if text in ("0", "00"):
             return self._menu_categories(session)
-        return self._error_retry(session, _lang(session, "invalid_choice"))
+        return self._error_retry(session, ui(session, "invalid_choice"))
 
-    def _show_rights(self, session, content):
-        if not content or not content.rights_information:
+    def _show_rights(self, session, legal_content):
+        if not legal_content:
+            return self._missing_section(session)
+        text = content(session, legal_content, "rights_information")
+        if not text:
             return self._missing_section(session)
         session.menu = "details"
         return "CON " + "\n".join(
-            [_lang(session, "understand_my_rights"), content.rights_information]
+            [ui(session, "understand_my_rights"), text]
         )
 
-    def _show_next_steps(self, session, content):
-        if not content or not content.next_steps:
+    def _show_next_steps(self, session, legal_content):
+        if not legal_content:
+            return self._missing_section(session)
+        text = content(session, legal_content, "next_steps")
+        if not text:
             return self._missing_section(session)
         session.menu = "details"
         return "CON " + "\n".join(
-            [_lang(session, "what_should_i_do"), content.next_steps]
+            [ui(session, "what_should_i_do"), text]
         )
 
-    def _show_documents(self, session, content):
-        if not content or not content.documents_required:
+    def _show_documents(self, session, legal_content):
+        if not legal_content:
+            return self._missing_section(session)
+        text = content(session, legal_content, "documents_required")
+        if not text:
             return self._missing_section(session)
         session.menu = "details"
         return "CON " + "\n".join(
-            [_lang(session, "documents_i_need"), content.documents_required]
+            [ui(session, "documents_i_need"), text]
         )
 
     def _missing_section(self, session):
-        return "CON " + _lang(session, "missing_translation_message")
+        return "CON " + ui(session, "missing_translation_message")
 
     # ------------------------------------------------------------------
     # Referrals
@@ -295,9 +305,9 @@ class UssdService:
             .values_list("category", flat=True)
             .distinct()
         )
-        lines = [_lang(session, "find_legal_help")]
+        lines = [ui(session, "find_legal_help")]
         if not categories:
-            return "END " + _lang(session, "no_verified_info")
+            return "END " + ui(session, "no_verified_info")
         for i, cat in enumerate(categories, start=1):
             lines.append(f"{i}. {cat}")
         session.menu = "referral_categories"
@@ -317,7 +327,7 @@ class UssdService:
             if idx < 0 or idx >= len(categories):
                 raise ValueError
         except ValueError:
-            return self._error_retry(session, _lang(session, "invalid_choice"))
+            return self._error_retry(session, ui(session, "invalid_choice"))
         category = categories[idx]
         session.data["referral_category"] = category
         return self._menu_referrals_for_category(session, category)
@@ -331,8 +341,8 @@ class UssdService:
             )
         )
         lines = [category]
-        for i, ref in enumerate(referrals, start=1):
-            lines.append(f"{i}. {ref.name}")
+        for i, referral in enumerate(referrals, start=1):
+            lines.append(f"{i}. {content(session, referral, 'name')}")
         session.menu = "referrals"
         return "CON " + "\n".join(lines)
 
@@ -358,18 +368,20 @@ class UssdService:
             if idx < 0 or idx >= len(referrals):
                 raise ValueError
         except ValueError:
-            return self._error_retry(session, _lang(session, "invalid_choice"))
+            return self._error_retry(session, ui(session, "invalid_choice"))
         referral = referrals[idx]
         return self._menu_referral_detail(session, referral)
 
     def _menu_referral_detail(self, session, referral):
-        lines = [referral.name]
-        if referral.description:
-            lines.append(referral.description)
-        if referral.location:
-            lines.append(referral.location)
+        lines = [content(session, referral, "name")]
+        description = content(session, referral, "description")
+        location = content(session, referral, "location")
+        if description:
+            lines.append(description)
+        if location:
+            lines.append(location)
         if referral.phone:
-            lines.append(f"Tel: {referral.phone}")
+            lines.append(f"{ui(session, 'telephone')}: {referral.phone}")
         if referral.website:
             lines.append(referral.website)
         session.menu = "referral_detail"
@@ -391,10 +403,10 @@ class UssdService:
             .order_by("name")[:3]
         )
         if not referrals:
-            return "CON " + _lang(session, "no_verified_info")
-        lines = [_lang(session, "find_legal_help")]
+            return "CON " + ui(session, "no_verified_info")
+        lines = [ui(session, "find_legal_help")]
         for i, ref in enumerate(referrals, start=1):
-            lines.append(f"{i}. {ref.name}")
+            lines.append(f"{i}. {content(session, ref, 'name')}")
         session.menu = "referrals"
         session.data["referral_list"] = [ref.pk for ref in referrals]
         return "CON " + "\n".join(lines)
@@ -405,11 +417,11 @@ class UssdService:
         from apps.policies.models import PolicyUpdate
 
         policies = list(PolicyUpdate.objects.filter(is_active=True)[:5])
-        lines = [_lang(session, "policy_updates")]
+        lines = [ui(session, "policy_updates")]
         if not policies:
-            return "END " + _lang(session, "no_verified_info")
+            return "END " + ui(session, "no_verified_info")
         for i, policy in enumerate(policies, start=1):
-            lines.append(f"{i}. {policy.title}")
+            lines.append(f"{i}. {content(session, policy, 'title')}")
         session.menu = "policy_list"
         return "CON " + "\n".join(lines)
 
@@ -422,35 +434,40 @@ class UssdService:
             if idx < 0 or idx >= len(policies):
                 raise ValueError
         except ValueError:
-            return self._error_retry(session, _lang(session, "invalid_choice"))
+            return self._error_retry(session, ui(session, "invalid_choice"))
         policy = policies[idx]
-        return "END " + "\n".join(
-            [policy.title, policy.summary or "", policy.source or ""]
-        )
+        title = content(session, policy, "title")
+        summary = content(session, policy, "summary")
+        lines = [title]
+        if summary:
+            lines.append(summary)
+        if policy.source:
+            lines.append(policy.source)
+        return "END " + "\n".join(lines)
 
     # ------------------------------------------------------------------
     # SMS + voice + navigation helpers
-    def _send_sms(self, session, content):
+    def _send_sms(self, session, legal_content):
         if not session.phone_number:
-            return "END " + _lang(session, "sms_failed")
+            return "END " + ui(session, "sms_failed")
         try:
-            send_infosms(session.phone_number, content)
+            send_infosms(session.phone_number, legal_content)
         except Exception:  # noqa: BLE001
             logger.warning("SMS failed from USSD", exc_info=True)
-            return "END " + _lang(session, "sms_failed")
-        return "END " + _lang(session, "sms_sent")
+            return "END " + ui(session, "sms_failed")
+        return "END " + ui(session, "sms_sent")
 
     def _voice_prompt(self, session):
-        return "END MANYA Voice is coming soon. Please use SMS or the website."
+        return "END " + ui(session, "voice_coming_soon")
 
     def _current_topic_content(self, session):
         topic = self._selected_topic(session)
         if topic is None:
             return None
-        content = get_verified_content(topic, session.language_code)
-        if content is None and session.language_code != "en":
-            content = get_verified_content(topic, "en")
-        return content
+        legal_content = get_verified_content(topic, session.language_code)
+        if legal_content is None and session.language_code != "en":
+            legal_content = get_verified_content(topic, "en")
+        return legal_content
 
     def _selected_category(self, session):
         selection = session.data.get("user_selection") or []
@@ -471,7 +488,7 @@ class UssdService:
         return "CON " + message
 
     def _farewell(self, session):
-        return "END " + _lang(session, "exit")
+        return "END " + ui(session, "exit")
 
 
 def _generic_error():

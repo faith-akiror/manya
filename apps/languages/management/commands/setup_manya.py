@@ -1,10 +1,11 @@
 import os
 
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from apps.languages.models import Language, UIMessage
+from apps.languages.models import ContentTranslation, Language, UIMessage
 from apps.legal.models import (
     DISCLAIMER,
     LegalCategory,
@@ -75,6 +76,10 @@ UI_MESSAGES = {
         "sms_sent": "Information has been sent to your phone.",
         "exit": "Thank you for using MANYA. Goodbye.",
         "choose_issue": "Choose an issue",
+        "telephone": "Tel",
+        "voice_coming_soon": (
+            "MANYA Voice is coming soon. Please use SMS or the website."
+        ),
     },
     "lg": {
         "welcome": "Tukwanirizza ku MANYA",
@@ -363,6 +368,7 @@ class Command(BaseCommand):
         self._setup_legal_data()
         self._setup_referrals()
         self._setup_policies()
+        self._setup_english_content_translations()
 
     def _setup_superuser(self):
         User = get_user_model()
@@ -648,5 +654,106 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Policies created: {created_count}"))
         self.stdout.write(self.style.SUCCESS(f"Policies updated: {updated_count}"))
 
+    def _setup_english_content_translations(self):
+        self.stdout.write("Setting up English content translations...")
+
+        english = Language.objects.filter(code="en", is_active=True).first()
+        if not english:
+            self.stdout.write(
+                self.style.WARNING("English language not found. Skipping content translations.")
+            )
+            return
+
+        created_count = 0
+        updated_count = 0
+
+        for category in LegalCategory.objects.filter(is_active=True):
+            value = category.name or ""
+            if not value:
+                continue
+            _, created = ContentTranslation.objects.update_or_create(
+                language=english,
+                content_type=ContentType.objects.get_for_model(LegalCategory),
+                object_id=category.pk,
+                field="name",
+                defaults={"text": value, "is_verified": True},
+            )
+            created_count += 1 if created else 0
+            updated_count += 0 if created else 1
+
+        for topic in LegalTopic.objects.filter(is_active=True):
+            value = topic.name or ""
+            if not value:
+                continue
+            _, created = ContentTranslation.objects.update_or_create(
+                language=english,
+                content_type=ContentType.objects.get_for_model(LegalTopic),
+                object_id=topic.pk,
+                field="name",
+                defaults={"text": value, "is_verified": True},
+            )
+            created_count += 1 if created else 0
+            updated_count += 0 if created else 1
+
+        for legal_content in LegalContent.objects.all():
+            for field in (
+                "rights_information",
+                "next_steps",
+                "documents_required",
+                "summary",
+                "title",
+            ):
+                value = getattr(legal_content, field, "") or ""
+                if not value:
+                    continue
+                _, created = ContentTranslation.objects.update_or_create(
+                    language=english,
+                    content_type=ContentType.objects.get_for_model(LegalContent),
+                    object_id=legal_content.pk,
+                    field=field,
+                    defaults={"text": value, "is_verified": True},
+                )
+                created_count += 1 if created else 0
+                updated_count += 0 if created else 1
+
+        for referral in Referral.objects.filter(is_verified=True):
+            for field in ("name", "description", "location"):
+                value = getattr(referral, field, "") or ""
+                if not value:
+                    continue
+                _, created = ContentTranslation.objects.update_or_create(
+                    language=english,
+                    content_type=ContentType.objects.get_for_model(Referral),
+                    object_id=referral.pk,
+                    field=field,
+                    defaults={"text": value, "is_verified": True},
+                )
+                created_count += 1 if created else 0
+                updated_count += 0 if created else 1
+
+        for policy in PolicyUpdate.objects.filter(is_active=True):
+            for field in ("title", "summary"):
+                value = getattr(policy, field, "") or ""
+                if not value:
+                    continue
+                _, created = ContentTranslation.objects.update_or_create(
+                    language=english,
+                    content_type=ContentType.objects.get_for_model(PolicyUpdate),
+                    object_id=policy.pk,
+                    field=field,
+                    defaults={"text": value, "is_verified": True},
+                )
+                created_count += 1 if created else 0
+                updated_count += 0 if created else 1
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Content translations created: {created_count}")
+        )
+        self.stdout.write(
+            self.style.SUCCESS(f"Content translations updated: {updated_count}")
+        )
+
         self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS("MANYA setup completed successfully."))
+        self.stdout.write(
+            self.style.SUCCESS("MANYA setup completed successfully.")
+        )

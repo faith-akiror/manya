@@ -1,8 +1,8 @@
-"""Django admin for the languages app."""
+"""Django admin for the MANYA languages app."""
 
 from django.contrib import admin
 
-from apps.languages.models import Language, UIMessage
+from apps.languages.models import ContentTranslation, Language, UIMessage
 
 
 @admin.register(Language)
@@ -37,4 +37,26 @@ class UIMessageAdmin(admin.ModelAdmin):
     list_display = ("key", "language", "text")
     list_filter = ("language",)
     search_fields = ("key", "text")
+    autocomplete_fields = ("language",)
     ordering = ("language__display_order", "key")
+
+
+@admin.register(ContentTranslation)
+class ContentTranslationAdmin(admin.ModelAdmin):
+    list_display = (
+        "content_type",
+        "object_id",
+        "field",
+        "language",
+        "is_verified",
+    )
+    list_filter = (
+        "language",
+        "content_type",
+        "field",
+        "is_verified",
+    )
+    search_fields = ("text", "field")
+    autocomplete_fields = ("language",)
+    list_editable = ("is_verified",)
+    ordering = ("language", "content_type", "object_id", "field")
