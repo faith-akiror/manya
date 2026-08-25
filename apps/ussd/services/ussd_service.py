@@ -492,4 +492,9 @@ class UssdService:
 
 
 def _generic_error():
-    return "END We are sorry - something went wrong. Please try again later."
+    """Terminal safety net: user-facing text only, never internal details."""
+    from apps.languages.services.translation_service import TranslationService
+
+    language = Language.get_default()
+    code = language.code if language else "en"
+    return "END " + TranslationService.get_text("system_error", code)

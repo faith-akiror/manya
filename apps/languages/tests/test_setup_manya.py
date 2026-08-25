@@ -24,7 +24,7 @@ class SetupManyaTests(TestCase):
 
     def test_setup_manya_creates_ui_messages(self):
         en = Language.objects.get(code="en")
-        self.assertEqual(UIMessage.objects.filter(language=en).count(), 23)
+        self.assertEqual(UIMessage.objects.filter(language=en).count(), 24)
         self.assertTrue(UIMessage.objects.filter(language=en, key="welcome").exists())
 
     def test_setup_manya_creates_legal_sources(self):
@@ -68,7 +68,7 @@ class SetupManyaTests(TestCase):
         call_command("setup_manya")
 
         self.assertEqual(Language.objects.count(), 4)
-        self.assertEqual(UIMessage.objects.count(), 86)
+        self.assertEqual(UIMessage.objects.count(), 87)
         self.assertEqual(LegalSource.objects.count(), 3)
         self.assertEqual(LegalCategory.objects.count(), 3)
         self.assertEqual(LegalTopic.objects.count(), 3)
@@ -133,4 +133,4 @@ class SetupManyaTests(TestCase):
         self.assertEqual(
             UIMessage.objects.filter(language=sw, key="i_have_a_problem").count(), 1
         )
-        self.assertEqual(UIMessage.objects.filter(language=sw).count(), 23)
+        self.assertEqual(UIMessage.objects.filter(language=sw).count(), 24)

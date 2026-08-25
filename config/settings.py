@@ -113,6 +113,16 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# --- Sunbird AI translation ---
+# SUNBIRD_ENABLED turns the automatic translation layer on. When enabled, a
+# missing translation is fetched from Sunbird, cached in the database and
+# reused — Sunbird is never called on every request. Secrets stay in
+# environment variables and are never logged.
+SUNBIRD_ENABLED = env_bool("SUNBIRD_ENABLED", default=False)
+SUNBIRD_BASE_URL = os.getenv("SUNBIRD_BASE_URL", "https://api.sunbird.ai")
+SUNBIRD_API_TOKEN = os.getenv("SUNBIRD_API_TOKEN", "")
+SUNBIRD_TIMEOUT = int(os.getenv("SUNBIRD_TIMEOUT", "10"))
+
 # --- Internationalization ---
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Africa/Kampala"

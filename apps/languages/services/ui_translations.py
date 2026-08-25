@@ -51,6 +51,9 @@ DEFAULT_ENGLISH = {
     "voice_coming_soon": (
         "MANYA Voice is coming soon. Please use SMS or the website."
     ),
+    "system_error": (
+        "We are sorry - something went wrong. Please try again later."
+    ),
 }
 
 
@@ -88,5 +91,5 @@ class UITranslationService:
         if language and language_code != "en":
             for row in UIMessage.objects.filter(language=language):
                 bundle[row.key] = row.text
-        cache.set(cache_key, bundle, cls.timeout)
+        cache.set(cache_key, bundle, cls.cache_timeout)
         return bundle

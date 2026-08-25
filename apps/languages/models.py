@@ -88,6 +88,22 @@ class UIMessage(models.Model):
         return f"{self.language.code}:{self.key}"
 
 
+# Provenance of a ContentTranslation record. ``sunbird`` records are generated
+# automatically by the translation service and may be reviewed by an admin.
+TRANSLATION_SOURCE_CHOICES = [
+    ("manual", "Manual"),
+    ("sunbird", "Sunbird"),
+    ("system", "System"),
+]
+
+# Review lifecycle of a ContentTranslation record. Machine translations start
+# as ``machine_translated`` until a human marks them ``reviewed``.
+TRANSLATION_STATUS_CHOICES = [
+    ("machine_translated", "Machine translated"),
+    ("reviewed", "Reviewed"),
+]
+
+
 class ContentTranslation(models.Model):
     """Generic verified translation of database content.
 
@@ -114,6 +130,23 @@ class ContentTranslation(models.Model):
         help_text="Only verified translations should be shown publicly.",
     )
 
+    translation_source = models.CharField(
+        max_length=20,
+        choices=TRANSLATION_SOURCE_CHOICES,
+        default="manual",
+        help_text="Where this translation came from (Sunbird, admin, system).",
+    )
+
+    translation_status = models.CharField(
+        max_length=20,
+        choices=TRANSLATION_STATUS_CHOICES,
+        default="machine_translated",
+        help_text=(
+            "Machine translations must be reviewed by a human before they "
+            "should be treated as authoritative."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -138,3 +171,36 @@ class ContentTranslation(models.Model):
             f"{self.object_id}:"
             f"{self.field}"
         )
+
+
+class Translation(models.Model):
+    """Database-backed translation cache for free text.
+
+    Keyed by a hash of the source text plus the language pair so that a given
+    English string is translated at most once per target language. USSD/API
+    lookups hit this table first and only fall through to Sunbird when the
+    cache is empty — this is what keeps Sunbird API usage to one call per
+    missing translation instead of one call per request.
+    """
+
+    source_text = models.TextField()
+    source_language = models.CharField(max_length=10)
+    target_language = models.CharField(max_length=10)
+    translated_text = models.TextField()
+    source_hash = models.CharField(max_length=64, db_index=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Translation cache"
+        verbose_name_plural = "Translation cache"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_hash", "source_language", "target_language"],
+                name="translation_cache_unique",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.source_language}->{self.target_language} ({self.source_hash[:8]})"

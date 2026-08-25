@@ -7,6 +7,18 @@ from apps.legal.services.content_query import (
     available_languages_for_topic,
     get_verified_content,
 )
+from apps.languages.services.translation_service import TranslationService
+
+# Legal content fields that are sent through the central translation service
+# when a non-English language is requested on the API.
+LEGAL_CONTENT_TRANSLATABLE_FIELDS = (
+    "title",
+    "summary",
+    "rights_information",
+    "what_this_means",
+    "next_steps",
+    "documents_required",
+)
 
 
 class SourcePublicSerializer(serializers.ModelSerializer):
@@ -128,7 +140,17 @@ class LegalTopicDetailSerializer(serializers.Serializer):
             content = get_verified_content(topic, "en")
         if content is None:
             return None
-        return LegalContentPublicSerializer(content, context=self.context).data
+        data = LegalContentPublicSerializer(content, context=self.context).data
+        # If the requested language is not English but only the English record
+        # exists, resolve every translatable field through the SAME translation
+        # service used by USSD (database -> Sunbird -> English fallback).
+        if content.language.code == "en" and lang_code and lang_code != "en":
+            for field in LEGAL_CONTENT_TRANSLATABLE_FIELDS:
+                if data.get(field):
+                    data[field] = TranslationService.get_content(
+                        content, field, lang_code
+                    )
+        return data
 
     def get_missing_translation(self, obj):
         lang_code = self.context.get("language_code") or "en"

@@ -2,7 +2,12 @@
 
 from django.contrib import admin
 
-from apps.languages.models import ContentTranslation, Language, UIMessage
+from apps.languages.models import (
+    ContentTranslation,
+    Language,
+    Translation,
+    UIMessage,
+)
 
 
 @admin.register(Language)
@@ -49,14 +54,63 @@ class ContentTranslationAdmin(admin.ModelAdmin):
         "field",
         "language",
         "is_verified",
+        "translation_source",
+        "translation_status",
     )
     list_filter = (
         "language",
         "content_type",
         "field",
         "is_verified",
+        "translation_source",
+        "translation_status",
     )
     search_fields = ("text", "field")
     autocomplete_fields = ("language",)
-    list_editable = ("is_verified",)
+    list_editable = (
+        "is_verified",
+        "translation_status",
+    )
     ordering = ("language", "content_type", "object_id", "field")
+    actions = ("mark_reviewed",)
+
+    @admin.action(description="Mark selected translations as reviewed (human-approved)")
+    def mark_reviewed(self, request, queryset):
+        queryset.update(translation_status="reviewed")
+        self.message_user(
+            request,
+            f"{queryset.count()} translation(s) marked reviewed.",
+        )
+
+
+@admin.register(Translation)
+class TranslationAdmin(admin.ModelAdmin):
+    """Translation cache — free-text Sunbird results stored per language pair."""
+
+    list_display = (
+        "source_language",
+        "target_language",
+        "source_preview",
+        "translated_preview",
+        "updated_at",
+    )
+    list_filter = ("source_language", "target_language")
+    search_fields = ("source_text", "translated_text")
+    readonly_fields = (
+        "source_text",
+        "source_language",
+        "target_language",
+        "translated_text",
+        "source_hash",
+        "created_at",
+        "updated_at",
+    )
+    ordering = ("-updated_at",)
+
+    @admin.display(description="Source")
+    def source_preview(self, obj):
+        return (obj.source_text or "")[:80]
+
+    @admin.display(description="Translated")
+    def translated_preview(self, obj):
+        return (obj.translated_text or "")[:80]

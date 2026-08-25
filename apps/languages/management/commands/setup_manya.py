@@ -80,6 +80,9 @@ UI_MESSAGES = {
         "voice_coming_soon": (
             "MANYA Voice is coming soon. Please use SMS or the website."
         ),
+        "system_error": (
+            "We are sorry - something went wrong. Please try again later."
+        ),
     },
     "lg": {
         "welcome": "Tukwanirizza ku MANYA",
@@ -676,7 +679,7 @@ class Command(BaseCommand):
                 content_type=ContentType.objects.get_for_model(LegalCategory),
                 object_id=category.pk,
                 field="name",
-                defaults={"text": value, "is_verified": True},
+                defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
             )
             created_count += 1 if created else 0
             updated_count += 0 if created else 1
@@ -690,7 +693,7 @@ class Command(BaseCommand):
                 content_type=ContentType.objects.get_for_model(LegalTopic),
                 object_id=topic.pk,
                 field="name",
-                defaults={"text": value, "is_verified": True},
+                defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
             )
             created_count += 1 if created else 0
             updated_count += 0 if created else 1
@@ -711,7 +714,7 @@ class Command(BaseCommand):
                     content_type=ContentType.objects.get_for_model(LegalContent),
                     object_id=legal_content.pk,
                     field=field,
-                    defaults={"text": value, "is_verified": True},
+                    defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
                 )
                 created_count += 1 if created else 0
                 updated_count += 0 if created else 1
@@ -726,7 +729,7 @@ class Command(BaseCommand):
                     content_type=ContentType.objects.get_for_model(Referral),
                     object_id=referral.pk,
                     field=field,
-                    defaults={"text": value, "is_verified": True},
+                    defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
                 )
                 created_count += 1 if created else 0
                 updated_count += 0 if created else 1
@@ -741,7 +744,7 @@ class Command(BaseCommand):
                     content_type=ContentType.objects.get_for_model(PolicyUpdate),
                     object_id=policy.pk,
                     field=field,
-                    defaults={"text": value, "is_verified": True},
+                    defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
                 )
                 created_count += 1 if created else 0
                 updated_count += 0 if created else 1
