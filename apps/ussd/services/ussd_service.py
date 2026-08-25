@@ -339,12 +339,20 @@ class UssdService:
     def _handle_referrals(self, session, text):
         from apps.referrals.models import Referral
 
-        category = session.data.get("referral_category")
-        referrals = list(
-            Referral.objects.filter(is_verified=True, category=category).order_by(
-                "name"
+        referral_list = session.data.get("referral_list")
+        if referral_list:
+            referrals = list(
+                Referral.objects.filter(
+                    is_verified=True, pk__in=referral_list
+                ).order_by("name")
             )
-        )
+        else:
+            category = session.data.get("referral_category")
+            referrals = list(
+                Referral.objects.filter(is_verified=True, category=category).order_by(
+                    "name"
+                )
+            )
         try:
             idx = int(text) - 1
             if idx < 0 or idx >= len(referrals):
