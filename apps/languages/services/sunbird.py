@@ -172,19 +172,19 @@ class SunbirdTranslationService:
 
     @classmethod
     def _extract_translation(cls, data):
-        """Tolerate the different JSON shapes returned by Sunbird."""
-        for key in (
-            "translation",
-            "translated_text",
-            "translatedText",
-            "result",
-            "text",
-        ):
-            value = data.get(key)
-            if value:
-                return str(value)
-        nested = data.get("data")
-        if isinstance(nested, dict):
+        """Tolerate the different JSON shapes returned by Sunbird.
+
+        Sunbird's live API nests the result under ``output`` (e.g.
+        ``{"status": "COMPLETED", "output": {"translated_text": "..."}}) so we
+        search top-level, ``data`` and ``output`` objects.
+        """
+        candidates = [data]
+        for container_name in ("data", "output"):
+            container = data.get(container_name)
+            if isinstance(container, dict):
+                candidates.append(container)
+
+        for candidate in candidates:
             for key in (
                 "translation",
                 "translated_text",
@@ -192,7 +192,7 @@ class SunbirdTranslationService:
                 "result",
                 "text",
             ):
-                value = nested.get(key)
+                value = candidate.get(key)
                 if value:
                     return str(value)
         return ""
