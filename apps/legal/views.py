@@ -38,6 +38,12 @@ class CategoryListAPIView(generics.ListAPIView):
             .order_by("display_order", "name")
         )
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # Database-only translation fast path (see serializer docstring).
+        context["language_code"] = self.request.query_params.get("lang", "")
+        return context
+
 
 class CategoryDetailAPIView(generics.RetrieveAPIView):
     """One category with its verified topics."""
@@ -48,6 +54,12 @@ class CategoryDetailAPIView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return LegalCategory.objects.filter(is_active=True)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # Full translation service path (DB -> Sunbird -> English).
+        context["language_code"] = self.request.query_params.get("lang", "en")
+        return context
 
 
 class TopicListAPIView(generics.ListAPIView):

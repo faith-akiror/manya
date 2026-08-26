@@ -26,7 +26,9 @@ import time
 
 from django.conf import settings
 
-from apps.languages.services.sunbird import SunbirdTranslationService as SunbirdHTTPClient
+from apps.languages.services.sunbird import (
+    SunbirdTranslationService as SunbirdHTTPClient,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,8 @@ def get_provider():
         enabled=getattr(settings, "SUNBIRD_ENABLED", False),
         timeout=getattr(settings, "SUNBIRD_TIMEOUT", 10),
     )
+
+
 class SunbirdTranslationService:
     """High-level, fault-tolerant Sunbird adapter (see module docstring).
 

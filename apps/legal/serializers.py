@@ -2,12 +2,13 @@
 
 from rest_framework import serializers
 
+from apps.languages.services.content_translation import ContentTranslationService
+from apps.languages.services.translation_service import TranslationService
 from apps.legal.models import LegalCategory, LegalContent, LegalSource, LegalTopic
 from apps.legal.services.content_query import (
     available_languages_for_topic,
     get_verified_content,
 )
-from apps.languages.services.translation_service import TranslationService
 
 # Legal content fields that are sent through the central translation service
 # when a non-English language is requested on the API.
@@ -77,11 +78,27 @@ class LegalContentPublicSerializer(serializers.ModelSerializer):
 
 
 class LegalCategorySerializer(serializers.ModelSerializer):
+    """Category list payload.
+
+    When ``?lang=<code>`` is supplied, stored translations are applied via a
+    DATABASE-ONLY fast path: list views never trigger Sunbird fan-out, they
+    simply fall back to English until a translation exists in the database.
+    """
+
     topic_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = LegalCategory
         fields = ["id", "name", "slug", "description", "display_order", "topic_count"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        lang = self.context.get("language_code") or ""
+        if lang and lang != "en":
+            for field in ("name", "description"):
+                if data.get(field):
+                    data[field] = ContentTranslationService.get(instance, field, lang)
+        return data
 
 
 class LegalTopicBriefSerializer(serializers.ModelSerializer):
@@ -99,17 +116,44 @@ class LegalCategoryDetailSerializer(serializers.ModelSerializer):
         model = LegalCategory
         fields = ["id", "name", "slug", "description", "topics"]
 
+    def _lang(self):
+        request = self.context.get("request")
+        return self.context.get("language_code") or (
+            request.query_params.get("lang", "en") if request else "en"
+        )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        lang = self._lang()
+        if lang and lang != "en":
+            for field in ("name", "description"):
+                if data.get(field):
+                    data[field] = TranslationService.get_content(instance, field, lang)
+        return data
+
     def get_topics(self, category):
         topics = category.topics.filter(is_active=True)
-        return [
-            {
-                "name": topic.name,
-                "slug": topic.slug,
-                "description": topic.description,
-                "available_languages": available_languages_for_topic(topic),
-            }
-            for topic in topics
-        ]
+        lang = self._lang()
+        results = []
+        for topic in topics:
+            name = topic.name
+            description = topic.description
+            if lang != "en":
+                # Full service path: stored translation -> Sunbird -> English.
+                name = TranslationService.get_content(topic, "name", lang)
+                if description:
+                    description = TranslationService.get_content(
+                        topic, "description", lang
+                    )
+            results.append(
+                {
+                    "name": name,
+                    "slug": topic.slug,
+                    "description": description,
+                    "available_languages": available_languages_for_topic(topic),
+                }
+            )
+        return results
 
 
 class LegalTopicDetailSerializer(serializers.Serializer):
@@ -125,8 +169,16 @@ class LegalTopicDetailSerializer(serializers.Serializer):
     available_languages = serializers.SerializerMethodField()
 
     def get_category(self, topic):
+        request = self.context["request"]
+        lang_code = self.context.get("language_code") or (
+            request.query_params.get("lang") or "en"
+        )
+        name = topic.category.name
+        if lang_code and lang_code != "en":
+            # Same central service USSD/SMS use: DB -> Sunbird -> English.
+            name = TranslationService.get_content(topic.category, "name", lang_code)
         return {
-            "name": topic.category.name,
+            "name": name,
             "slug": topic.category.slug,
         }
 

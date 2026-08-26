@@ -167,10 +167,7 @@ def split_sms_message(text: str, limit: int = SMS_PART_LIMIT) -> list[str]:
         return chunks
 
     total = len(chunks)
-    width = max(2, len(str(total)))
-    return [
-        f"Part {i}/{total}\n{chunk}" for i, chunk in enumerate(chunks, start=1)
-    ]
+    return [f"Part {i}/{total}\n{chunk}" for i, chunk in enumerate(chunks, start=1)]
 
 
 def build_content_sms(content, include_next_step: bool = True) -> str:
@@ -192,7 +189,11 @@ def send_infosms(phone_number, content, service=None, message=None):
     reached through SMSService. Callers may pass a pre-built ``message``
     (e.g. already translated by the central translation service) which then
     takes precedence over the default English composition.
+
+    Long messages are split at word boundaries into multiple parts
+    (``Part i/n``) instead of being blindly cut at 160 characters, so a
+    translated sentence is never truncated mid-sentence.
     """
     service = service or SMSService()
     message = message or build_content_sms(content)
-    return service.send(phone_number, message)
+    return service.send_parts(phone_number, message)

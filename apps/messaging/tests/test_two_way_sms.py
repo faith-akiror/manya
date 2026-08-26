@@ -4,8 +4,8 @@ No real Africa's Talking or Sunbird traffic: SMSService.send is patched and
 the Sunbird facade is mocked, exactly like the USSD/translation suites.
 """
 
-import json
 import itertools
+import json
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -76,9 +76,7 @@ class SplitSmsMessageTests(TestCase):
             p.split("\n", 1)[-1] if p.startswith("Part ") else p for p in parts
         )
         # Chunk boundaries consume one space; no letter may be lost or mangled.
-        self.assertEqual(
-            rebuilt.replace(" ", ""), original.replace(" ", "")
-        )
+        self.assertEqual(rebuilt.replace(" ", ""), original.replace(" ", ""))
         for part in parts:
             self.assertLessEqual(len(part), 160)
 
@@ -87,7 +85,13 @@ class SplitSmsMessageTests(TestCase):
 
     def test_oversized_single_word_is_hard_cut(self):
         parts = split_sms_message("x" * 400)
-        joined = "".join(p.replace("Part ", "").replace("/3\n", "") for p in parts)
+        self.assertGreater(len(parts), 1)
+        joined = "".join(
+            p.split("\n", 1)[-1] if p.startswith("Part ") else p for p in parts
+        )
+        self.assertEqual(joined, "x" * 400)
+
+
 class IncomingSMSTests(TestCase):
     """The full two-way journey over the incoming webhook."""
 
@@ -122,12 +126,15 @@ class IncomingSMSTests(TestCase):
         )
 
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService,
-                "translate",
-                side_effect=lambda text, src, tgt: "LUG:" + str(text),
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService,
+                    "translate",
+                    side_effect=lambda text, src, tgt: "LUG:" + str(text),
+                ),
             ):
                 self._send(self.client, text="")
                 self._send(self.client, text="2")  # Luganda
@@ -140,7 +147,7 @@ class IncomingSMSTests(TestCase):
         self.assertIn("LUG:", incoming.reply_text)
 
     def test_existing_session_continues_journey(self):
-        self._send(self.client, text="")   # language menu
+        self._send(self.client, text="")  # language menu
         self._send(self.client, text="1")  # English -> main menu
         session = UssdSession.objects.get(session_id=f"sms:{PHONE}")
         self.assertEqual(session.menu, "main")
@@ -160,11 +167,10 @@ class IncomingSMSTests(TestCase):
         self._send(self.client, text="1")  # Understand my rights
 
         incoming = IncomingSMS.objects.order_by("-created_at").first()
-        self.assertIn(
-            "satisfactory, fair and healthy conditions", incoming.reply_text
-        )
+        self.assertIn("satisfactory, fair and healthy conditions", incoming.reply_text)
+
     def test_invalid_option_gets_error_reply_not_crash(self):
-        self._send(self.client, text="")   # language menu
+        self._send(self.client, text="")  # language menu
         self._send(self.client, text="1")  # English -> main menu
         self._send(self.client, text="98")  # invalid choice
 
@@ -188,17 +194,13 @@ class IncomingSMSTests(TestCase):
         self.assertEqual(IncomingSMS.objects.count(), 1)
 
     def test_invalid_phone_is_skipped_without_crash(self):
-        response = post_incoming(
-            self.client, raw={"from": "not-a-phone", "text": "hi"}
-        )
+        response = post_incoming(self.client, raw={"from": "not-a-phone", "text": "hi"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(IncomingSMS.objects.count(), 0)
 
     def test_session_timeout_keeps_language_returns_to_main(self):
         lg = Language.objects.get(code="lg")
-        UIMessage.objects.create(
-            language=lg, key="choose_issue", text="Londa ekizibu"
-        )
+        UIMessage.objects.create(language=lg, key="choose_issue", text="Londa ekizibu")
         UssdSession.objects.create(
             session_id=f"sms:{PHONE}",
             phone_number=PHONE,
@@ -254,9 +256,7 @@ class DeliveryReportTests(TestCase):
         self.assertEqual(report.failure_reason, "InvalidNumber")
 
     def test_status_transition_updates_same_record(self):
-        self._post_callback(
-            {"id": "ATMsgId_3", "phoneNumber": PHONE, "status": "Sent"}
-        )
+        self._post_callback({"id": "ATMsgId_3", "phoneNumber": PHONE, "status": "Sent"})
         self._post_callback(
             {"id": "ATMsgId_3", "phoneNumber": PHONE, "status": "Success"}
         )

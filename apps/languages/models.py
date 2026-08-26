@@ -208,4 +208,6 @@ class Translation(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.source_language}->{self.target_language} ({self.source_hash[:8]})"
+        return (
+            f"{self.source_language}->{self.target_language} ({self.source_hash[:8]})"
+        )

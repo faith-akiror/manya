@@ -2,11 +2,13 @@
 
 from django.contrib import admin
 
+from apps.languages.admin import ContentTranslationGenericInline
 from apps.referrals.models import Referral
 
 
 @admin.register(Referral)
 class ReferralAdmin(admin.ModelAdmin):
+    inlines = [ContentTranslationGenericInline]
     list_display = (
         "name",
         "category",

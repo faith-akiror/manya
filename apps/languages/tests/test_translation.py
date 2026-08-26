@@ -36,8 +36,9 @@ LUGANDA_MAP = {
     "Family": "Amaka",
     "Unpaid salary": "Omusaalo ogusasulwa",
     "Unpaid salary / wages": "Omusaalo ogusasulwa",
-    ("You have the right to work under satisfactory, fair and "
-     "healthy conditions."): "LUG_RIGHTS_TEXT",
+    (
+        "You have the right to work under satisfactory, fair and " "healthy conditions."
+    ): "LUG_RIGHTS_TEXT",
     "1. Gather documents. 2. Ask in writing. 3. Seek help.": "LUG_STEPS",
     "Contract, payslips, messages.": "LUG_DOCS",
     "Invalid choice. Please try again.": "LUG_INVALID",
@@ -86,13 +87,16 @@ class SunbirdServiceTests(TestCase):
         cat = first_category()
         make_translation(cat, "lg", "name", "Emirimu ebyafaayo")
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService,
-                "translate",
-                side_effect=AssertionError("must not call Sunbird"),
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService,
+                    "translate",
+                    side_effect=AssertionError("must not call Sunbird"),
+                ) as sb,
+            ):
                 result = TranslationService.get_content(cat, "name", "lg")
                 self.assertEqual(result, "Emirimu ebyafaayo")
                 sb.assert_not_called()
@@ -100,11 +104,14 @@ class SunbirdServiceTests(TestCase):
     def test_missing_translation_calls_sunbird_saves_and_reuses(self):
         cat = first_category()
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ) as sb,
+            ):
                 self.assertEqual(
                     TranslationService.get_content(cat, "name", "lg"), "Emirimu"
                 )
@@ -130,9 +137,12 @@ class SunbirdServiceTests(TestCase):
     def test_sunbird_failure_falls_back_to_english(self):
         cat = first_category()
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(SunbirdTranslationService, "translate", return_value=None):
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(SunbirdTranslationService, "translate", return_value=None),
+            ):
                 result = TranslationService.get_content(cat, "name", "lg")
                 self.assertEqual(result, "Employment")
         self.assertFalse(
@@ -145,13 +155,16 @@ class SunbirdServiceTests(TestCase):
         Language.objects.create(code="fr", name="French", is_active=True)
         cat = first_category()
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=False
-            ), patch.object(
-                SunbirdTranslationService,
-                "translate",
-                side_effect=AssertionError("must not call"),
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=False
+                ),
+                patch.object(
+                    SunbirdTranslationService,
+                    "translate",
+                    side_effect=AssertionError("must not call"),
+                ) as sb,
+            ):
                 self.assertEqual(
                     TranslationService.get_content(cat, "name", "fr"), "Employment"
                 )
@@ -161,22 +174,28 @@ class SunbirdServiceTests(TestCase):
         cat = first_category()
         make_translation(cat, "lg", "name", "Emirimu (human reviewed)")
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", return_value="WRONG"
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", return_value="WRONG"
+                ) as sb,
+            ):
                 result = TranslationService.get_content(cat, "name", "lg")
                 self.assertEqual(result, "Emirimu (human reviewed)")
                 sb.assert_not_called()
 
     def test_free_text_translation_cache(self):
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ) as sb,
+            ):
                 first = TranslationService.translate("Unpaid salary", "lg")
                 self.assertTrue(first)
                 self.assertEqual(Translation.objects.count(), 1)
@@ -196,10 +215,13 @@ class SunbirdServiceTests(TestCase):
         )
         cat = first_category()
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", return_value="Kazi"
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", return_value="Kazi"
+                ),
             ):
                 self.assertEqual(
                     TranslationService.get_content(cat, "name", "sw"), "Kazi"
@@ -213,11 +235,14 @@ class SunbirdServiceTests(TestCase):
     def test_ui_message_get_text_translates_and_persists(self):
         lg = Language.objects.get(code="lg")
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ) as sb,
+            ):
                 self.assertEqual(
                     TranslationService.get_text("welcome", "lg"), "LUG_WELCOME"
                 )
@@ -231,10 +256,13 @@ class SunbirdServiceTests(TestCase):
 
     def test_generate_missing_is_idempotent(self):
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ),
             ):
                 first = TranslationService.generate_missing_for_language(
                     "lg", include_ui=False
@@ -250,10 +278,13 @@ class SunbirdServiceTests(TestCase):
     def test_facade_maps_codes_and_calls_http_client(self):
         with SUNBIRD_ON:
             provider = SunbirdTranslationService()
-            with patch.object(
-                provider._http, "translate", return_value="Emirimu"
-            ) as http, patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
+            with (
+                patch.object(
+                    provider._http, "translate", return_value="Emirimu"
+                ) as http,
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
             ):
                 result = provider.translate("Original", "en", "lg")
                 self.assertEqual(result, "Emirimu")
@@ -271,6 +302,8 @@ class SunbirdServiceTests(TestCase):
         self.assertEqual(to_sunbird_code("en"), "eng")
         self.assertEqual(to_sunbird_code("ach"), "ach")
         self.assertEqual(from_sunbird_code("lug"), "lg")
+
+
 class UssdSunbirdFlowTests(TestCase):
     """Full USSD navigation in Luganda — legal content comes from Sunbird."""
 
@@ -289,11 +322,14 @@ class UssdSunbirdFlowTests(TestCase):
 
     def test_luganda_flow_menu_and_legal_content_translated(self):
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ) as sb,
+            ):
                 self._call("", session="sess")
                 main = self._call("2", session="sess")  # Luganda
                 self.assertIn("LUG_PROBLEM", main)
@@ -365,11 +401,14 @@ class ApiTranslationTests(TestCase):
         legal_content = LegalContent.objects.first()
         make_translation(legal_content, "lg", "rights_information", "LUG_RIGHTS")
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ) as sb,
+            ):
                 resp = self.client.get("/api/legal/topics/unpaid-salary/?lang=lg")
                 self.assertEqual(resp.status_code, 200)
                 data = resp.json()["content"]
@@ -383,6 +422,7 @@ class ApiTranslationTests(TestCase):
                     rights_text,
                     [c.args[0] for c in sb.call_args_list],
                 )
+
 
 class UssdJourneyCoverageTests(TestCase):
     """Referrals, policies, errors and SMS — all translated in-session."""
@@ -416,10 +456,13 @@ class UssdJourneyCoverageTests(TestCase):
             is_verified=True,
         )
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ),
             ):
                 self._select_luganda()
                 cats = self._call("2*3")  # Find legal help -> categories
@@ -446,10 +489,13 @@ class UssdJourneyCoverageTests(TestCase):
             is_active=True,
         )
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ),
             ):
                 self._select_luganda()
                 listing = self._call("2*4")
@@ -463,10 +509,13 @@ class UssdJourneyCoverageTests(TestCase):
 
     def test_error_message_translated_in_luganda(self):
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ),
             ):
                 self._select_luganda()
                 resp = self._call("9")  # invalid main-menu choice
@@ -476,16 +525,18 @@ class UssdJourneyCoverageTests(TestCase):
 
     def test_sms_body_is_composed_in_session_language(self):
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
-            ), patch(
-                "apps.ussd.services.ussd_service.send_infosms"
-            ) as sms:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ),
+                patch("apps.ussd.services.ussd_service.send_infosms") as sms,
+            ):
                 self._select_luganda()
-                self._call("2*1")      # I have a problem
-                self._call("2*1*1")    # Employment
+                self._call("2*1")  # I have a problem
+                self._call("2*1*1")  # Employment
                 self._call("2*1*1*1")  # Unpaid salary
                 resp = self._call("2*1*1*1*5")  # Send SMS
                 self.assertTrue(resp.startswith("END "))
@@ -496,6 +547,7 @@ class UssdJourneyCoverageTests(TestCase):
                 self.assertIn("LUG_DISCLAIMER", body)
                 self.assertNotIn("Next step:", body)
                 self.assertNotIn("This is general legal information", body)
+
     def test_future_content_translated_without_code_changes(self):
         from apps.legal.models import (
             LegalCategory,
@@ -531,11 +583,14 @@ class UssdJourneyCoverageTests(TestCase):
         )
 
         with SUNBIRD_ON:
-            with patch.object(
-                SunbirdTranslationService, "is_supported", return_value=True
-            ), patch.object(
-                SunbirdTranslationService, "translate", side_effect=fake_translate
-            ) as sb:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", side_effect=fake_translate
+                ) as sb,
+            ):
                 self._select_luganda(session="future")
                 cats = self._call("2*1", session="future")
                 # Categories ordered alphabetically: Employment=1, Workers Rights=2.

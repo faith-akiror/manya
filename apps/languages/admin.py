@@ -1,6 +1,7 @@
 """Django admin for the MANYA languages app."""
 
 from django.contrib import admin
+from django.contrib.contenttypes.admin import GenericTabularInline
 
 from apps.languages.models import (
     ContentTranslation,
@@ -8,6 +9,33 @@ from apps.languages.models import (
     Translation,
     UIMessage,
 )
+
+
+class ContentTranslationGenericInline(GenericTabularInline):
+    """Edit translations directly on the owning legal object's admin page.
+
+    Works for any model with a GenericRelation-free generic relation to
+    ContentTranslation (content_type + object_id). Administrators pick any
+    ACTIVE language from the dropdown - including languages added later -
+    so the interface dynamically supports future languages with no code
+    changes.
+    """
+
+    model = ContentTranslation
+    extra = 0
+    fields = (
+        "language",
+        "field",
+        "text",
+        "is_verified",
+        "translation_source",
+        "translation_status",
+    )
+    autocomplete_fields = ("language",)
+    verbose_name = "Translation"
+    verbose_name_plural = (
+        "Translations (choose language + field, e.g. name / title / summary)"
+    )
 
 
 @admin.register(Language)

@@ -30,7 +30,10 @@ from apps.languages.models import (
 )
 from apps.languages.services.content_translation import ContentTranslationService
 from apps.languages.services.sunbird_translation import get_provider
-from apps.languages.services.ui_translations import DEFAULT_ENGLISH, UITranslationService
+from apps.languages.services.ui_translations import (
+    DEFAULT_ENGLISH,
+    UITranslationService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +42,12 @@ logger = logging.getLogger(__name__)
 TRANSLATABLE_MODELS = {
     "LegalCategory": {"app": "legal", "fields": ("name", "description")},
     "LegalTopic": {"app": "legal", "fields": ("name", "description")},
+    "LegalSource": {
+        "app": "legal",
+        # Only the display name is translated; citations/identifiers keep
+        # their canonical legal form.
+        "fields": ("name",),
+    },
     "LegalContent": {
         "app": "legal",
         "fields": (
@@ -188,10 +197,13 @@ class TranslationService:
 
         # 5. Safe English fallback.
         return source_text
-# ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
     # Dynamic object content (ContentTranslation) -> Sunbird -> English fallback
     @classmethod
-    def get_content(cls, obj, field, language_code, fallback=True, auto_translation=True):
+    def get_content(
+        cls, obj, field, language_code, fallback=True, auto_translation=True
+    ):
         """Return a translated object field for a language.
 
         Checks ContentTranslation first, generates + persists via Sunbird when
@@ -210,9 +222,7 @@ class TranslationService:
             return original
 
         # Existing usable translation (verified or Sunbird-generated).
-        existing = ContentTranslationService.get(
-            obj, field, lang.code, fallback=False
-        )
+        existing = ContentTranslationService.get(obj, field, lang.code, fallback=False)
         if existing:
             return existing
 

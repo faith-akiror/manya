@@ -51,10 +51,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         requested = options.get("languages")
         if requested:
-            languages = list(
-                Language.active_public().filter(code__in=requested)
-            )
-            missing = [c for c in requested if c not in [l.code for l in languages]]
+            languages = list(Language.active_public().filter(code__in=requested))
+            missing = [
+                c for c in requested if c not in [lang.code for lang in languages]
+            ]
             for code in missing:
                 self.stderr.write(f"Unknown/inactive language code: {code}. Skipping.")
         else:
@@ -71,7 +71,9 @@ class Command(BaseCommand):
 
         if dry_run:
             for lang in languages:
-                self.stdout.write(f"[dry-run] Would translate into {lang.code} ({lang.name})")
+                self.stdout.write(
+                    f"[dry-run] Would translate into {lang.code} ({lang.name})"
+                )
             return
 
         for lang in languages:

@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import render
 from django.utils import timezone
 
+from apps.languages.admin import ContentTranslationGenericInline
 from apps.legal.models import (
     LegalCategory,
     LegalContent,
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 @admin.register(LegalSource)
 class LegalSourceAdmin(admin.ModelAdmin):
+    inlines = [ContentTranslationGenericInline]
     list_display = (
         "name",
         "organization",
@@ -118,6 +120,7 @@ class LegalContentInline(admin.TabularInline):
 
 @admin.register(LegalCategory)
 class LegalCategoryAdmin(admin.ModelAdmin):
+    inlines = [ContentTranslationGenericInline]
     list_display = ("name", "slug", "is_active", "display_order")
     list_editable = ("is_active", "display_order")
     prepopulated_fields = {"slug": ("name",)}
@@ -126,16 +129,17 @@ class LegalCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(LegalTopic)
 class LegalTopicAdmin(admin.ModelAdmin):
+    inlines = [LegalContentInline, ContentTranslationGenericInline]
     list_display = ("name", "category", "slug", "is_active", "display_order")
     list_filter = ("category", "is_active")
     list_editable = ("is_active", "display_order")
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ("name", "slug")
-    inlines = [LegalContentInline]
 
 
 @admin.register(LegalContent)
 class LegalContentAdmin(admin.ModelAdmin):
+    inlines = [ContentTranslationGenericInline]
     list_display = (
         "title",
         "topic",

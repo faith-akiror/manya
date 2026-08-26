@@ -38,9 +38,7 @@ class Command(BaseCommand):
             user.save()
 
             self.stdout.write(
-                self.style.SUCCESS(
-                    f"Superuser '{username}' created successfully."
-                )
+                self.style.SUCCESS(f"Superuser '{username}' created successfully.")
             )
             return
 

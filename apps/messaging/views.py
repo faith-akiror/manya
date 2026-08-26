@@ -16,8 +16,6 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-logger = logging.getLogger(__name__)
-
 from apps.languages.services.ui_translations import UITranslationService
 from apps.legal.models import LegalTopic
 from apps.legal.services.content_query import get_verified_content
@@ -30,6 +28,8 @@ from apps.messaging.services.africastalking_sms import (
     build_content_sms,
 )
 from apps.messaging.services.sms_service import normalize_sms_phone
+
+logger = logging.getLogger(__name__)
 
 
 class SMSAPIView(APIView):
@@ -147,9 +147,8 @@ def _parse_provider_payload(request):
             data = json.loads(raw)
         except ValueError:
             data = None
-    if data in (None, "", {}):
-        if request.POST:
-            data = dict(request.POST.items())
+    if data in (None, "", {}) and request.POST:
+        data = dict(request.POST.items())
     if isinstance(data, list):
         return [item for item in data if isinstance(item, dict)]
     if isinstance(data, dict) and data:
@@ -215,9 +214,7 @@ class SMSDeliveryCallbackView(APIView):
                     )
                 stored += 1
             except Exception as exc:  # noqa: BLE001 - duplicate race / bad field
-                logger.warning(
-                    "Delivery report not stored (likely duplicate): %s", exc
-                )
+                logger.warning("Delivery report not stored (likely duplicate): %s", exc)
                 duplicates += 1
 
         logger.info(
@@ -259,9 +256,7 @@ class IncomingSMSView(APIView):
             if IncomingSMS.objects.filter(fingerprint=fingerprint).exists():
                 continue
 
-            phone = normalize_sms_phone(
-                entry.get("from") or entry.get("source") or ""
-            )
+            phone = normalize_sms_phone(entry.get("from") or entry.get("source") or "")
             text = str(entry.get("text") or "")
 
             try:

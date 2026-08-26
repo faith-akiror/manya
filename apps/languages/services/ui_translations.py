@@ -48,16 +48,10 @@ DEFAULT_ENGLISH = {
     "sms_failed": "We could not send the SMS right now. Please try again later.",
     "exit": "Thank you for using MANYA.",
     "telephone": "Tel",
-    "voice_coming_soon": (
-        "MANYA Voice is coming soon. Please use SMS or the website."
-    ),
-    "system_error": (
-        "We are sorry - something went wrong. Please try again later."
-    ),
+    "voice_coming_soon": ("MANYA Voice is coming soon. Please use SMS or the website."),
+    "system_error": ("We are sorry - something went wrong. Please try again later."),
     "sms_next_step": "Next step",
-    "sms_disclaimer": (
-        "This is general legal information, not legal advice."
-    ),
+    "sms_disclaimer": ("This is general legal information, not legal advice."),
 }
 
 

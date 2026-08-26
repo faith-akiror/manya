@@ -84,9 +84,7 @@ UI_MESSAGES = {
             "We are sorry - something went wrong. Please try again later."
         ),
         "sms_next_step": "Next step",
-        "sms_disclaimer": (
-            "This is general legal information, not legal advice."
-        ),
+        "sms_disclaimer": ("This is general legal information, not legal advice."),
     },
     "lg": {
         "welcome": "Tukwanirizza ku MANYA",
@@ -429,6 +427,13 @@ class Command(BaseCommand):
             user.is_active = True
             changed = True
 
+        # Keep the configured password authoritative so rotating
+        # DJANGO_SUPERUSER_PASSWORD in the environment updates the single
+        # administrator on the next deployment. Never logged or echoed.
+        if not user.check_password(password):
+            user.set_password(password)
+            changed = True
+
         if changed:
             user.save()
 
@@ -662,12 +667,14 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Policies updated: {updated_count}"))
 
     def _setup_english_content_translations(self):
-        self.stdout.write("Setting up English content translations...")
+        self.stdout.write("Setting up legal translations...")
 
         english = Language.objects.filter(code="en", is_active=True).first()
         if not english:
             self.stdout.write(
-                self.style.WARNING("English language not found. Skipping content translations.")
+                self.style.WARNING(
+                    "English language not found. Skipping content translations."
+                )
             )
             return
 
@@ -683,7 +690,12 @@ class Command(BaseCommand):
                 content_type=ContentType.objects.get_for_model(LegalCategory),
                 object_id=category.pk,
                 field="name",
-                defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
+                defaults={
+                    "text": value,
+                    "is_verified": True,
+                    "translation_source": "system",
+                    "translation_status": "reviewed",
+                },
             )
             created_count += 1 if created else 0
             updated_count += 0 if created else 1
@@ -697,7 +709,12 @@ class Command(BaseCommand):
                 content_type=ContentType.objects.get_for_model(LegalTopic),
                 object_id=topic.pk,
                 field="name",
-                defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
+                defaults={
+                    "text": value,
+                    "is_verified": True,
+                    "translation_source": "system",
+                    "translation_status": "reviewed",
+                },
             )
             created_count += 1 if created else 0
             updated_count += 0 if created else 1
@@ -718,7 +735,12 @@ class Command(BaseCommand):
                     content_type=ContentType.objects.get_for_model(LegalContent),
                     object_id=legal_content.pk,
                     field=field,
-                    defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
+                    defaults={
+                        "text": value,
+                        "is_verified": True,
+                        "translation_source": "system",
+                        "translation_status": "reviewed",
+                    },
                 )
                 created_count += 1 if created else 0
                 updated_count += 0 if created else 1
@@ -733,7 +755,12 @@ class Command(BaseCommand):
                     content_type=ContentType.objects.get_for_model(Referral),
                     object_id=referral.pk,
                     field=field,
-                    defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
+                    defaults={
+                        "text": value,
+                        "is_verified": True,
+                        "translation_source": "system",
+                        "translation_status": "reviewed",
+                    },
                 )
                 created_count += 1 if created else 0
                 updated_count += 0 if created else 1
@@ -748,7 +775,12 @@ class Command(BaseCommand):
                     content_type=ContentType.objects.get_for_model(PolicyUpdate),
                     object_id=policy.pk,
                     field=field,
-                    defaults={"text": value, "is_verified": True, "translation_source": "system", "translation_status": "reviewed"},
+                    defaults={
+                        "text": value,
+                        "is_verified": True,
+                        "translation_source": "system",
+                        "translation_status": "reviewed",
+                    },
                 )
                 created_count += 1 if created else 0
                 updated_count += 0 if created else 1
@@ -761,6 +793,4 @@ class Command(BaseCommand):
         )
 
         self.stdout.write("")
-        self.stdout.write(
-            self.style.SUCCESS("MANYA setup completed successfully.")
-        )
+        self.stdout.write(self.style.SUCCESS("MANYA setup completed successfully."))

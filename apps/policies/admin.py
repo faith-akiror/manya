@@ -2,11 +2,13 @@
 
 from django.contrib import admin
 
+from apps.languages.admin import ContentTranslationGenericInline
 from apps.policies.models import PolicyUpdate
 
 
 @admin.register(PolicyUpdate)
 class PolicyUpdateAdmin(admin.ModelAdmin):
+    inlines = [ContentTranslationGenericInline]
     list_display = (
         "title",
         "category",

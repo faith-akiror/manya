@@ -170,7 +170,9 @@ class UssdService:
     # Categories -> issues -> topic options
     def _menu_categories(self, session):
         categories = list(
-            LegalCategory.objects.filter(is_active=True).order_by("display_order", "name")
+            LegalCategory.objects.filter(is_active=True).order_by(
+                "display_order", "name"
+            )
         )
         lines = [ui(session, "choose_issue")]
         for i, category in enumerate(categories, start=1):
@@ -204,7 +206,9 @@ class UssdService:
 
     def _handle_categories(self, session, text):
         categories = list(
-            LegalCategory.objects.filter(is_active=True).order_by("display_order", "name")
+            LegalCategory.objects.filter(is_active=True).order_by(
+                "display_order", "name"
+            )
         )
         try:
             idx = int(text) - 1
@@ -266,9 +270,7 @@ class UssdService:
         if not text:
             return self._missing_section(session)
         session.menu = "details"
-        return "CON " + "\n".join(
-            [ui(session, "understand_my_rights"), text]
-        )
+        return "CON " + "\n".join([ui(session, "understand_my_rights"), text])
 
     def _show_next_steps(self, session, legal_content):
         if not legal_content:
@@ -277,9 +279,7 @@ class UssdService:
         if not text:
             return self._missing_section(session)
         session.menu = "details"
-        return "CON " + "\n".join(
-            [ui(session, "what_should_i_do"), text]
-        )
+        return "CON " + "\n".join([ui(session, "what_should_i_do"), text])
 
     def _show_documents(self, session, legal_content):
         if not legal_content:
@@ -288,9 +288,7 @@ class UssdService:
         if not text:
             return self._missing_section(session)
         session.menu = "details"
-        return "CON " + "\n".join(
-            [ui(session, "documents_i_need"), text]
-        )
+        return "CON " + "\n".join([ui(session, "documents_i_need"), text])
 
     def _missing_section(self, session):
         return "CON " + ui(session, "missing_translation_message")
