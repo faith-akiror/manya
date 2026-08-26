@@ -189,6 +189,11 @@ class Translation(models.Model):
     translated_text = models.TextField()
     source_hash = models.CharField(max_length=64, db_index=True)
 
+    # Optional provenance: which model/record the text came from. Purely
+    # informational - identical source texts share one cached translation.
+    content_type = models.CharField(max_length=100, blank=True, null=True)
+    content_id = models.CharField(max_length=100, blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

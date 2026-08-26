@@ -131,13 +131,15 @@ def build_content_sms(content, include_next_step: bool = True) -> str:
     return "\n".join(lines)
 
 
-def send_infosms(phone_number, content, service=None):
+def send_infosms(phone_number, content, service=None, message=None):
     """Send a concise language-aware MANYA SMS for a LegalContent.
 
     Used by the USSD "Send SMS" step. The message is built from the same
     verified content served everywhere else; the provider is only ever
-    reached through SMSService.
+    reached through SMSService. Callers may pass a pre-built ``message``
+    (e.g. already translated by the central translation service) which then
+    takes precedence over the default English composition.
     """
     service = service or SMSService()
-    message = build_content_sms(content)
+    message = message or build_content_sms(content)
     return service.send(phone_number, message)

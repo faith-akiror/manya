@@ -35,10 +35,15 @@ LUGANDA_MAP = {
     "Land": "Ettaka",
     "Family": "Amaka",
     "Unpaid salary": "Omusaalo ogusasulwa",
+    "Unpaid salary / wages": "Omusaalo ogusasulwa",
     ("You have the right to work under satisfactory, fair and "
      "healthy conditions."): "LUG_RIGHTS_TEXT",
     "1. Gather documents. 2. Ask in writing. 3. Seek help.": "LUG_STEPS",
     "Contract, payslips, messages.": "LUG_DOCS",
+    "Invalid choice. Please try again.": "LUG_INVALID",
+    "NGO": "LUG_NGO",
+    "Next step": "LUG_NEXT_STEP",
+    "This is general legal information, not legal advice.": "LUG_DISCLAIMER",
 }
 
 SUNBIRD_ON = override_settings(SUNBIRD_ENABLED=True, SUNBIRD_API_TOKEN="fake-token")
@@ -378,3 +383,168 @@ class ApiTranslationTests(TestCase):
                     rights_text,
                     [c.args[0] for c in sb.call_args_list],
                 )
+
+class UssdJourneyCoverageTests(TestCase):
+    """Referrals, policies, errors and SMS — all translated in-session."""
+
+    def setUp(self):
+        seed_basic()
+        self.service = UssdService()
+
+    def _call(self, text, session="j1"):
+        return self.service.handle(
+            {
+                "sessionId": session,
+                "phoneNumber": "+256700000002",
+                "text": text,
+            }
+        )["response"]
+
+    def _select_luganda(self, session="j1"):
+        self._call("", session=session)
+        return self._call("2", session=session)
+
+    def test_referral_branch_fully_translated_in_luganda(self):
+        from apps.referrals.models import Referral
+
+        Referral.objects.create(
+            name="FIDA Uganda",
+            description="Legal aid for women and children.",
+            category="NGO",
+            location="Kampala",
+            phone="+256414286021",
+            is_verified=True,
+        )
+        with SUNBIRD_ON:
+            with patch.object(
+                SunbirdTranslationService, "is_supported", return_value=True
+            ), patch.object(
+                SunbirdTranslationService, "translate", side_effect=fake_translate
+            ):
+                self._select_luganda()
+                cats = self._call("2*3")  # Find legal help -> categories
+                self.assertIn("LUG_NGO", cats)
+                self.assertNotIn("\n1. NGO", cats)
+
+                refs = self._call("2*3*1")  # referrals inside NGO
+                self.assertIn("LUG_NGO", refs)  # translated category header
+
+                detail = self._call("2*3*1*1")
+                self.assertTrue(detail.startswith("END "))
+                self.assertIn("TRANS:FIDA Uganda", detail)
+                # Phone numbers are identifiers and stay untouched.
+                self.assertIn("+256414286021", detail)
+
+    def test_policy_branch_fully_translated_in_luganda(self):
+        from apps.policies.models import PolicyUpdate
+
+        PolicyUpdate.objects.create(
+            title="Wage Policy 2024",
+            slug="wage-policy-2024",
+            summary="New wage enforcement rules.",
+            source="Test Ministry",
+            is_active=True,
+        )
+        with SUNBIRD_ON:
+            with patch.object(
+                SunbirdTranslationService, "is_supported", return_value=True
+            ), patch.object(
+                SunbirdTranslationService, "translate", side_effect=fake_translate
+            ):
+                self._select_luganda()
+                listing = self._call("2*4")
+                self.assertIn("TRANS:Wage Policy 2024", listing)
+
+                detail = self._call("2*4*1")
+                self.assertTrue(detail.startswith("END "))
+                self.assertIn("TRANS:Wage Policy 2024", detail)
+                self.assertIn("TRANS:New wage enforcement rules.", detail)
+                self.assertIn("TRANS:Test Ministry", detail)
+
+    def test_error_message_translated_in_luganda(self):
+        with SUNBIRD_ON:
+            with patch.object(
+                SunbirdTranslationService, "is_supported", return_value=True
+            ), patch.object(
+                SunbirdTranslationService, "translate", side_effect=fake_translate
+            ):
+                self._select_luganda()
+                resp = self._call("9")  # invalid main-menu choice
+                self.assertTrue(resp.startswith("CON "))
+                self.assertIn("LUG_INVALID", resp)
+                self.assertNotIn("Invalid choice. Please try again.", resp)
+
+    def test_sms_body_is_composed_in_session_language(self):
+        with SUNBIRD_ON:
+            with patch.object(
+                SunbirdTranslationService, "is_supported", return_value=True
+            ), patch.object(
+                SunbirdTranslationService, "translate", side_effect=fake_translate
+            ), patch(
+                "apps.ussd.services.ussd_service.send_infosms"
+            ) as sms:
+                self._select_luganda()
+                self._call("2*1")      # I have a problem
+                self._call("2*1*1")    # Employment
+                self._call("2*1*1*1")  # Unpaid salary
+                resp = self._call("2*1*1*1*5")  # Send SMS
+                self.assertTrue(resp.startswith("END "))
+                sms.assert_called_once()
+                body = sms.call_args.kwargs["message"]
+                self.assertIn("MANYA — Omusaalo ogusasulwa", body)
+                self.assertIn("LUG_NEXT_STEP:", body)
+                self.assertIn("LUG_DISCLAIMER", body)
+                self.assertNotIn("Next step:", body)
+                self.assertNotIn("This is general legal information", body)
+    def test_future_content_translated_without_code_changes(self):
+        from apps.legal.models import (
+            LegalCategory,
+            LegalContent,
+            LegalSource,
+            LegalTopic,
+        )
+
+        source = LegalSource.objects.first()
+        new_cat = LegalCategory.objects.create(
+            name="Workers Rights", slug="workers-rights"
+        )
+        LegalTopic.objects.create(
+            name="Delayed salary payments",
+            slug="delayed-salary",
+            category=new_cat,
+        )
+        en = Language.objects.get(code="en")
+        topic = LegalTopic.objects.get(slug="delayed-salary")
+        LegalContent.objects.create(
+            topic=topic,
+            language=en,
+            source=source,
+            title="Delayed salary payments",
+            summary="Employers must pay on time.",
+            rights_information="You may file a labour complaint.",
+            what_this_means="Late wages are unlawful.",
+            next_steps="Report to the labour office.",
+            documents_required="Contract, payslips.",
+            legal_reference="Art 40(1)",
+            verification_status="VERIFIED",
+            last_verified="2025-01-01",
+        )
+
+        with SUNBIRD_ON:
+            with patch.object(
+                SunbirdTranslationService, "is_supported", return_value=True
+            ), patch.object(
+                SunbirdTranslationService, "translate", side_effect=fake_translate
+            ) as sb:
+                self._select_luganda(session="future")
+                cats = self._call("2*1", session="future")
+                # Categories ordered alphabetically: Employment=1, Workers Rights=2.
+                self.assertIn("TRANS:Workers Rights", cats)
+
+                issues = self._call("2*1*2", session="future")
+                self.assertIn("TRANS:Delayed salary payments", issues)
+
+                self._call("2*1*2*1", session="future")
+                rights = self._call("2*1*2*1*1", session="future")
+                self.assertIn("TRANS:You may file a labour complaint.", rights)
+                self.assertGreater(sb.call_count, 0)

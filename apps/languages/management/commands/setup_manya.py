@@ -83,6 +83,10 @@ UI_MESSAGES = {
         "system_error": (
             "We are sorry - something went wrong. Please try again later."
         ),
+        "sms_next_step": "Next step",
+        "sms_disclaimer": (
+            "This is general legal information, not legal advice."
+        ),
     },
     "lg": {
         "welcome": "Tukwanirizza ku MANYA",

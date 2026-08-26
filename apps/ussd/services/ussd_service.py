@@ -16,6 +16,7 @@ traces ever reach the handset.
 import logging
 
 from apps.languages.models import Language
+from apps.languages.services.translation_service import TranslationService
 from apps.legal.models import LegalCategory, LegalTopic
 from apps.legal.services.content_query import get_verified_content
 from apps.messaging.services.africastalking_sms import send_infosms
@@ -309,7 +310,7 @@ class UssdService:
         if not categories:
             return "END " + ui(session, "no_verified_info")
         for i, cat in enumerate(categories, start=1):
-            lines.append(f"{i}. {cat}")
+            lines.append(f"{i}. {self.t(cat, session)}")
         session.menu = "referral_categories"
         return "CON " + "\n".join(lines)
 
@@ -340,7 +341,7 @@ class UssdService:
                 "name"
             )
         )
-        lines = [category]
+        lines = [self.t(category, session)]
         for i, referral in enumerate(referrals, start=1):
             lines.append(f"{i}. {content(session, referral, 'name')}")
         session.menu = "referrals"
@@ -442,7 +443,7 @@ class UssdService:
         if summary:
             lines.append(summary)
         if policy.source:
-            lines.append(policy.source)
+            lines.append(content(session, policy, "source"))
         return "END " + "\n".join(lines)
 
     # ------------------------------------------------------------------
@@ -451,7 +452,11 @@ class UssdService:
         if not session.phone_number:
             return "END " + ui(session, "sms_failed")
         try:
-            send_infosms(session.phone_number, legal_content)
+            send_infosms(
+                session.phone_number,
+                legal_content,
+                message=self._translated_sms_message(session, legal_content),
+            )
         except Exception:  # noqa: BLE001
             logger.warning("SMS failed from USSD", exc_info=True)
             return "END " + ui(session, "sms_failed")
@@ -489,6 +494,34 @@ class UssdService:
 
     def _farewell(self, session):
         return "END " + ui(session, "exit")
+
+    def t(self, text, session, content_type=None, content_id=None):
+        """Translate a dynamic piece of text for the session language.
+
+        Thin wrapper over the central translation service so no USSD code ever
+        returns raw database strings. Results are cached, so Sunbird is only
+        called once per missing string.
+        """
+        return TranslationService.translate(
+            text,
+            session.language_code,
+            content_type=content_type,
+            content_id=content_id,
+        )
+
+    def _translated_sms_message(self, session, legal_content):
+        """Compose the confirmation SMS in the session language."""
+        lines = [f"MANYA — {content(session, legal_content, 'title')}"]
+        summary = content(session, legal_content, "summary")
+        if summary:
+            lines.append(summary.strip())
+        steps = content(session, legal_content, "next_steps")
+        if steps:
+            lines.append(f"{ui(session, 'sms_next_step')}: {steps.strip()}")
+        lines.append(ui(session, "sms_disclaimer"))
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
 
 
 def _generic_error():

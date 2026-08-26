@@ -76,7 +76,14 @@ class TranslationService:
     # ------------------------------------------------------------------
     # Free-text translation cache (Translation model) -> Sunbird -> fallback
     @classmethod
-    def translate(cls, text, target_language, source_language="en"):
+    def translate(
+        cls,
+        text,
+        target_language,
+        source_language="en",
+        content_type=None,
+        content_id=None,
+    ):
         """Translate free text, caching the result in ``Translation``.
 
         Returns the best-effort translation (or the original text) and never
@@ -108,16 +115,34 @@ class TranslationService:
             )
             return text
 
+        defaults = {
+            "source_text": text,
+            "translated_text": translation,
+        }
+        if content_type is not None:
+            defaults["content_type"] = str(content_type)[:100]
+        if content_id is not None:
+            defaults["content_id"] = str(content_id)[:100]
         Translation.objects.update_or_create(
             source_hash=cache_key,
             source_language=source_language,
             target_language=target_language,
-            defaults={
-                "source_text": text,
-                "translated_text": translation,
-            },
+            defaults=defaults,
         )
         return translation
+
+    @classmethod
+    def translate_object(cls, obj, fields, target_language):
+        """Translate several object fields at once; returns ``{field: text}``.
+
+        Uses the same database-first / Sunbird-on-miss path as USSD, so results
+        are cached in ContentTranslation and reused across channels.
+        """
+        return {
+            field: cls.get_content(obj, field, target_language)
+            for field in fields
+            if getattr(obj, field, "")
+        }
 
     # ------------------------------------------------------------------
     # UI messages (UIMessage) -> Sunbird -> English fallback
