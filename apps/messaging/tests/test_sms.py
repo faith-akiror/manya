@@ -29,8 +29,15 @@ class SMSServiceTests(TestCase):
         self.assertTrue(self.service.is_configured())
 
     def test_missing_credentials(self):
+        import os
+
         svc = SMSService(username="", api_key="")
-        self.assertFalse(svc.is_configured())
+        with patch.dict(
+            os.environ,
+            {"AFRICASTALKING_USERNAME": "", "AFRICASTALKING_API_KEY": ""},
+        ):
+            svc = SMSService(username="", api_key="")
+            self.assertFalse(svc.is_configured())
 
     def test_validate_phone_number(self):
         self.assertEqual(validate_phone_number("+256700000000"), "+256700000000")

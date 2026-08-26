@@ -35,6 +35,8 @@ urlpatterns = [
     path("api/legal/", include("apps.legal.urls")),
     path("api/referrals/", include("apps.referrals.urls")),
     path("api/policies/", include("apps.policies.urls")),
+    # Two-way SMS webhooks (Africa's Talking callbacks)
+    path("api/messaging/", include("apps.messaging.urls")),
     # Africa's Talking channels
     path("api/", include("apps.ussd.urls")),
     path("api/", include("apps.messaging.urls")),

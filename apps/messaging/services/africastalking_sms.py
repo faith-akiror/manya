@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 PHONE_RE = re.compile(r"^\+?\d{9,15}$")
 
+# Practical single-SMS ceiling. The "Part i/n" header is prepended on top of
+# this when a message must be split, so keep head-room inside 160 chars.
+SMS_PART_LIMIT = 150
+
 
 def validate_phone_number(phone_number):
     """Validate and normalize a phone number. Raises SMSServiceError if invalid."""
@@ -118,6 +122,55 @@ class SMSService:
                 f"SMS was rejected by the provider: {recipients[0].get('status') or 'unknown'}."
             )
         return payload
+
+    def send_parts(self, phone_number: str, message: str) -> list[dict]:
+        """Send ``message`` as one or more SMS parts, split at word boundaries.
+
+        Important legal information is never truncated to a single SMS: every
+        part is delivered in order. Returns the list of provider responses.
+        """
+        parts = split_sms_message(message)
+        return [self.send(phone_number, part) for part in parts]
+
+
+def split_sms_message(text: str, limit: int = SMS_PART_LIMIT) -> list[str]:
+    """Split ``text`` into SMS-sized parts at word boundaries.
+
+    - Never cuts inside a word.
+    - Preserves existing line breaks where they fit.
+    - When more than one part results, each part is prefixed with
+      ``Part i/n`` so the reader always knows where they are.
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+
+    # Greedy word wrap that respects explicit line breaks.
+    chunks: list[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if len(candidate) <= limit:
+            current = candidate
+            continue
+        if current:
+            chunks.append(current)
+        # A single word longer than the limit is hard-cut rather than lost.
+        while len(word) > limit:
+            chunks.append(word[:limit])
+            word = word[limit:]
+        current = word
+    if current:
+        chunks.append(current)
+
+    if len(chunks) == 1:
+        return chunks
+
+    total = len(chunks)
+    width = max(2, len(str(total)))
+    return [
+        f"Part {i}/{total}\n{chunk}" for i, chunk in enumerate(chunks, start=1)
+    ]
 
 
 def build_content_sms(content, include_next_step: bool = True) -> str:
