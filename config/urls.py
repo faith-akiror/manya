@@ -29,6 +29,7 @@ def health(request):
 urlpatterns = [
     path("", api_home, name="api-home"),
     path("health/", health, name="health"),
+    path("dashboard/", include("apps.dashboard.urls")),
     path("admin/", admin.site.urls),
     # Public API
     path("api/languages/", include("apps.languages.urls")),
