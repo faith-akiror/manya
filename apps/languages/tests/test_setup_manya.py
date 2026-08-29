@@ -24,8 +24,9 @@ class SetupManyaTests(TestCase):
 
     def test_setup_manya_creates_ui_messages(self):
         en = Language.objects.get(code="en")
-        self.assertEqual(UIMessage.objects.filter(language=en).count(), 26)
+        self.assertEqual(UIMessage.objects.filter(language=en).count(), 27)
         self.assertTrue(UIMessage.objects.filter(language=en, key="welcome").exists())
+        self.assertTrue(UIMessage.objects.filter(language=en, key="more").exists())
 
     def test_setup_manya_creates_legal_sources(self):
         self.assertTrue(
@@ -37,8 +38,10 @@ class SetupManyaTests(TestCase):
 
     def test_setup_manya_creates_legal_categories_and_topics(self):
         self.assertTrue(LegalCategory.objects.filter(slug="employment").exists())
+        self.assertTrue(LegalCategory.objects.filter(slug="family", is_active=True).exists())
         self.assertTrue(LegalTopic.objects.filter(slug="unpaid-salary").exists())
         self.assertTrue(LegalTopic.objects.filter(slug="tenancy").exists())
+        self.assertTrue(LegalTopic.objects.filter(slug="family-child-maintenance").exists())
 
     def test_setup_manya_creates_verified_legal_content(self):
         topic = LegalTopic.objects.get(slug="unpaid-salary")
@@ -68,10 +71,10 @@ class SetupManyaTests(TestCase):
         call_command("setup_manya")
 
         self.assertEqual(Language.objects.count(), 4)
-        self.assertEqual(UIMessage.objects.count(), 89)
-        self.assertEqual(LegalSource.objects.count(), 3)
+        self.assertEqual(UIMessage.objects.count(), 108)
+        self.assertEqual(LegalSource.objects.count(), 10)
         self.assertEqual(LegalCategory.objects.count(), 3)
-        self.assertEqual(LegalTopic.objects.count(), 3)
+        self.assertEqual(LegalTopic.objects.count(), 47)
         self.assertEqual(Referral.objects.count(), 3)
         self.assertEqual(PolicyUpdate.objects.count(), 2)
 
@@ -133,4 +136,4 @@ class SetupManyaTests(TestCase):
         self.assertEqual(
             UIMessage.objects.filter(language=sw, key="i_have_a_problem").count(), 1
         )
-        self.assertEqual(UIMessage.objects.filter(language=sw).count(), 26)
+        self.assertEqual(UIMessage.objects.filter(language=sw).count(), 27)

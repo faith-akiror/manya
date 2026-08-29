@@ -33,6 +33,8 @@ class UssdError(Exception):
 class UssdService:
     """Resolve one USSD request into the next menu (state machine)."""
 
+    TOPIC_PAGE_SIZE = 5
+
     def handle(self, payload):
         session_id = str(payload.get("sessionId") or "").strip()
         phone = str(payload.get("phoneNumber") or "").strip()
@@ -127,9 +129,13 @@ class UssdService:
         if choice == "1":
             session.menu = "categories"
             session.data["problem_flow"] = True
+            session.data["topic_page"] = 0
             return self._menu_categories(session)
         if choice == "2":
-            return self._menu_awareness(session)
+            session.menu = "categories"
+            session.data["problem_flow"] = False
+            session.data["topic_page"] = 0
+            return self._menu_categories(session)
         if choice == "3":
             session.menu = "referral_categories"
             return self._menu_referral_categories(session)
@@ -180,15 +186,35 @@ class UssdService:
         session.menu = "categories"
         return "CON " + "\n".join(lines)
 
-    def _menu_issues(self, session, category):
-        topics = list(
+    def _category_topics(self, category):
+        return list(
             LegalTopic.objects.filter(category=category, is_active=True).order_by(
                 "display_order", "name"
             )
         )
+
+    def _topic_page(self, session):
+        try:
+            return max(int(session.data.get("topic_page") or 0), 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _paginated_topics(self, session, category):
+        topics = self._category_topics(category)
+        page = self._topic_page(session)
+        start = page * self.TOPIC_PAGE_SIZE
+        chunk = topics[start : start + self.TOPIC_PAGE_SIZE]
+        has_more = start + self.TOPIC_PAGE_SIZE < len(topics)
+        return topics, chunk, has_more
+
+    def _menu_issues(self, session, category):
+        _topics, chunk, has_more = self._paginated_topics(session, category)
         lines = [content(session, category, "name")]
-        for i, topic in enumerate(topics, start=1):
+        for i, topic in enumerate(chunk, start=1):
             lines.append(f"{i}. {content(session, topic, 'name')}")
+        if has_more:
+            lines.append("9. " + ui(session, "more"))
+        lines.append("0. " + ui(session, "back"))
         session.menu = "issues"
         return "CON " + "\n".join(lines)
 
@@ -218,24 +244,28 @@ class UssdService:
             return self._error_retry(session, ui(session, "invalid_choice"))
         category = categories[idx]
         session.data["user_selection"] = [category.slug]
+        session.data["topic_page"] = 0
         return self._menu_issues(session, category)
 
     def _handle_issues(self, session, text):
         category = self._selected_category(session)
         if category is None:
             return self._error_retry(session, ui(session, "invalid_choice"))
-        topics = list(
-            LegalTopic.objects.filter(category=category, is_active=True).order_by(
-                "display_order", "name"
-            )
-        )
+        if text == "0":
+            session.data["topic_page"] = 0
+            return self._menu_categories(session)
+        _topics, chunk, has_more = self._paginated_topics(session, category)
+        if text == "9":
+            if has_more:
+                session.data["topic_page"] = self._topic_page(session) + 1
+            return self._menu_issues(session, category)
         try:
             idx = int(text) - 1
-            if idx < 0 or idx >= len(topics):
+            if idx < 0 or idx >= len(chunk):
                 raise ValueError
         except ValueError:
             return self._error_retry(session, ui(session, "invalid_choice"))
-        topic = topics[idx]
+        topic = chunk[idx]
         session.data["user_selection"] = [category.slug, topic.slug]
         return self._menu_topic_options(session, topic)
 
@@ -260,7 +290,11 @@ class UssdService:
         if text == "6":
             return self._voice_prompt(session)
         if text in ("0", "00"):
-            return self._menu_categories(session)
+            category = self._selected_category(session)
+            if category is None:
+                return self._menu_categories(session)
+            session.data["user_selection"] = [category.slug]
+            return self._menu_issues(session, category)
         return self._error_retry(session, ui(session, "invalid_choice"))
 
     def _show_rights(self, session, legal_content):

@@ -6,6 +6,13 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from apps.languages.models import ContentTranslation, Language, UIMessage
+from apps.languages.services.translation_service import TRANSLATABLE_MODELS
+from apps.legal.data.family_i18n import (
+    FAMILY_CATEGORY_I18N,
+    FAMILY_SOURCE_I18N,
+    translation_fields_for_topic,
+)
+from apps.legal.data.family_seed import FAMILY_SOURCES, FAMILY_TOPICS
 from apps.legal.models import (
     DISCLAIMER,
     LegalCategory,
@@ -85,6 +92,7 @@ UI_MESSAGES = {
         ),
         "sms_next_step": "Next step",
         "sms_disclaimer": ("This is general legal information, not legal advice."),
+        "more": "More",
     },
     "lg": {
         "welcome": "Tukwanirizza ku MANYA",
@@ -108,6 +116,18 @@ UI_MESSAGES = {
         "sms_sent": "Amawulire gasindikiddwa ku ssimu yo.",
         "exit": "Webale okukozesa MANYA. Weeraba.",
         "choose_issue": "Londa ekizibu",
+        "telephone": "Ssimu",
+        "voice_coming_soon": (
+            "MANYA Voice ejja. Kozesa SMS oba omukutu."
+        ),
+        "system_error": (
+            "Tusonyiwe - wabaawo ekizibu. Ddamu ogezeeko oluvannyuma."
+        ),
+        "sms_next_step": "Ekiddako",
+        "sms_disclaimer": (
+            "Kino kiri amawulire g'amateeka agawagira, si magezi g'amateeka."
+        ),
+        "more": "Ebisingawo",
     },
     "teo": {
         "welcome": "MANYA arai aicikokin",
@@ -131,6 +151,18 @@ UI_MESSAGES = {
         "sms_sent": "Akwapit kisuba ku ssimu.",
         "exit": "Webale MANYA. Damu keba.",
         "choose_issue": "Kibo akwapit",
+        "telephone": "Simu",
+        "voice_coming_soon": (
+            "MANYA Voice arai. Kibo SMS kosi website."
+        ),
+        "system_error": (
+            "Kisioma - ajokot ejeni. Damu keba arai."
+        ),
+        "sms_next_step": "Aite kere",
+        "sms_disclaimer": (
+            "Erai information lo cik, pe advice lo cik."
+        ),
+        "more": "Arai naitet",
     },
     "ach": {
         "welcome": "Wacok MANYA",
@@ -154,6 +186,18 @@ UI_MESSAGES = {
         "sms_sent": "Ngec otyeko cwal i cim mamegi.",
         "exit": "Apwoyo me tic ki MANYA. Oriti.",
         "choose_issue": "Yer peko",
+        "telephone": "Cim",
+        "voice_coming_soon": (
+            "MANYA Voice tye ka bino. Tii ki SMS onyo website."
+        ),
+        "system_error": (
+            "Wakwero kica - peko otime. Tem doki lacen."
+        ),
+        "sms_next_step": "Gin ma myero itim",
+        "sms_disclaimer": (
+            "Man ngec me cik, pe tam me lakwena."
+        ),
+        "more": "Mukene",
     },
 }
 
@@ -193,7 +237,15 @@ LEGAL_SOURCES = [
 LEGAL_CATEGORIES = [
     {"name": "Employment", "slug": "employment", "display_order": 1},
     {"name": "Land", "slug": "land", "display_order": 2},
-    {"name": "Family", "slug": "family", "display_order": 3},
+    {
+        "name": "Family",
+        "slug": "family",
+        "display_order": 3,
+        "description": (
+            "Marriage, children, domestic violence, family property and "
+            "inheritance under Ugandan law."
+        ),
+    },
 ]
 
 LEGAL_TOPICS = [
@@ -374,6 +426,7 @@ class Command(BaseCommand):
         self._setup_referrals()
         self._setup_policies()
         self._setup_english_content_translations()
+        self._setup_family_translations()
 
     def _setup_superuser(self):
         User = get_user_model()
@@ -500,8 +553,8 @@ class Command(BaseCommand):
 
         source_objects = {}
 
-        for source_data in LEGAL_SOURCES:
-            source, created = LegalSource.objects.update_or_create(
+        for source_data in list(LEGAL_SOURCES) + list(FAMILY_SOURCES):
+            source, created = LegalSource.objects.get_or_create(
                 name=source_data["name"],
                 defaults={
                     "organization": source_data.get("organization", ""),
@@ -515,58 +568,64 @@ class Command(BaseCommand):
                 },
             )
             source_objects[source.name] = source
-            action = "Created" if created else "Updated"
+            action = "Created" if created else "Existing"
             self.stdout.write(self.style.SUCCESS(f"{action} source: {source.name}"))
 
         category_objects = {}
 
         for category_data in LEGAL_CATEGORIES:
-            category, created = LegalCategory.objects.update_or_create(
+            category, created = LegalCategory.objects.get_or_create(
                 slug=category_data["slug"],
                 defaults={
                     "name": category_data["name"],
+                    "description": category_data.get("description", ""),
                     "is_active": True,
                     "display_order": category_data["display_order"],
                 },
             )
+            if (
+                not created
+                and category_data.get("description")
+                and not category.description
+            ):
+                category.description = category_data["description"]
+                category.save(update_fields=["description", "updated_at"])
             category_objects[category.slug] = category
-            action = "Created" if created else "Updated"
+            action = "Created" if created else "Existing"
             self.stdout.write(self.style.SUCCESS(f"{action} category: {category.name}"))
 
         topic_objects = {}
 
-        for topic_data in LEGAL_TOPICS:
+        for topic_data in list(LEGAL_TOPICS) + list(FAMILY_TOPICS):
             category = category_objects[topic_data["category_slug"]]
-            topic, created = LegalTopic.objects.update_or_create(
+            topic, created = LegalTopic.objects.get_or_create(
                 slug=topic_data["slug"],
                 defaults={
                     "name": topic_data["name"],
                     "category": category,
+                    "description": topic_data.get("description", ""),
                     "is_active": True,
                     "display_order": topic_data["display_order"],
                 },
             )
             topic_objects[topic.slug] = topic
-            action = "Created" if created else "Updated"
+            action = "Created" if created else "Existing"
             self.stdout.write(self.style.SUCCESS(f"{action} topic: {topic.name}"))
 
         content_created = 0
-        content_updated = 0
+        content_existing = 0
 
-        for topic_data in LEGAL_TOPICS:
+        for topic_data in list(LEGAL_TOPICS) + list(FAMILY_TOPICS):
             topic = topic_objects[topic_data["slug"]]
             for language_code, content_data in topic_data["content"].items():
                 language = self.language_objects[language_code]
-                source = source_objects.get("Employment Act, 2006")
-                if topic_data["category_slug"] == "land":
-                    source = source_objects.get("Land Act, 1998")
-                elif topic_data["category_slug"] == "family":
-                    source = source_objects.get("Constitution of Uganda")
+                source = self._source_for_topic(topic_data, source_objects)
 
-                _, created = LegalContent.objects.update_or_create(
+                _, created = LegalContent.objects.get_or_create(
                     topic=topic,
                     language=language,
                     defaults={
+                        "source": source,
                         "title": content_data["title"],
                         "summary": content_data.get("summary", ""),
                         "rights_information": content_data.get(
@@ -598,14 +657,25 @@ class Command(BaseCommand):
                 if created:
                     content_created += 1
                 else:
-                    content_updated += 1
+                    content_existing += 1
 
         self.stdout.write(
             self.style.SUCCESS(f"Legal content created: {content_created}")
         )
         self.stdout.write(
-            self.style.SUCCESS(f"Legal content updated: {content_updated}")
+            self.style.SUCCESS(f"Legal content already present: {content_existing}")
         )
+
+    @staticmethod
+    def _source_for_topic(topic_data, source_objects):
+        named = topic_data.get("source_name")
+        if named and named in source_objects:
+            return source_objects[named]
+        if topic_data["category_slug"] == "land":
+            return source_objects.get("Land Act, 1998")
+        if topic_data["category_slug"] == "family":
+            return source_objects.get("Constitution of Uganda")
+        return source_objects.get("Employment Act, 2006")
 
     def _setup_referrals(self):
         self.stdout.write("Setting up MANYA referrals...")
@@ -679,118 +749,180 @@ class Command(BaseCommand):
             return
 
         created_count = 0
-        updated_count = 0
+        existing_count = 0
 
         for category in LegalCategory.objects.filter(is_active=True):
-            value = category.name or ""
-            if not value:
-                continue
-            _, created = ContentTranslation.objects.update_or_create(
-                language=english,
-                content_type=ContentType.objects.get_for_model(LegalCategory),
-                object_id=category.pk,
-                field="name",
-                defaults={
-                    "text": value,
-                    "is_verified": True,
-                    "translation_source": "system",
-                    "translation_status": "reviewed",
-                },
-            )
-            created_count += 1 if created else 0
-            updated_count += 0 if created else 1
+            for field in TRANSLATABLE_MODELS["LegalCategory"]["fields"]:
+                created = self._ensure_translation(
+                    category,
+                    english,
+                    field,
+                    getattr(category, field, "") or "",
+                    source="system",
+                )
+                if created is True:
+                    created_count += 1
+                elif created is False:
+                    existing_count += 1
 
         for topic in LegalTopic.objects.filter(is_active=True):
-            value = topic.name or ""
-            if not value:
-                continue
-            _, created = ContentTranslation.objects.update_or_create(
-                language=english,
-                content_type=ContentType.objects.get_for_model(LegalTopic),
-                object_id=topic.pk,
-                field="name",
-                defaults={
-                    "text": value,
-                    "is_verified": True,
-                    "translation_source": "system",
-                    "translation_status": "reviewed",
-                },
-            )
-            created_count += 1 if created else 0
-            updated_count += 0 if created else 1
+            for field in TRANSLATABLE_MODELS["LegalTopic"]["fields"]:
+                created = self._ensure_translation(
+                    topic,
+                    english,
+                    field,
+                    getattr(topic, field, "") or "",
+                    source="system",
+                )
+                if created is True:
+                    created_count += 1
+                elif created is False:
+                    existing_count += 1
 
         for legal_content in LegalContent.objects.all():
-            for field in (
-                "rights_information",
-                "next_steps",
-                "documents_required",
-                "summary",
-                "title",
-            ):
-                value = getattr(legal_content, field, "") or ""
-                if not value:
-                    continue
-                _, created = ContentTranslation.objects.update_or_create(
-                    language=english,
-                    content_type=ContentType.objects.get_for_model(LegalContent),
-                    object_id=legal_content.pk,
-                    field=field,
-                    defaults={
-                        "text": value,
-                        "is_verified": True,
-                        "translation_source": "system",
-                        "translation_status": "reviewed",
-                    },
+            for field in TRANSLATABLE_MODELS["LegalContent"]["fields"]:
+                created = self._ensure_translation(
+                    legal_content,
+                    english,
+                    field,
+                    getattr(legal_content, field, "") or "",
+                    source="system",
                 )
-                created_count += 1 if created else 0
-                updated_count += 0 if created else 1
+                if created is True:
+                    created_count += 1
+                elif created is False:
+                    existing_count += 1
 
         for referral in Referral.objects.filter(is_verified=True):
-            for field in ("name", "description", "location"):
-                value = getattr(referral, field, "") or ""
-                if not value:
-                    continue
-                _, created = ContentTranslation.objects.update_or_create(
-                    language=english,
-                    content_type=ContentType.objects.get_for_model(Referral),
-                    object_id=referral.pk,
-                    field=field,
-                    defaults={
-                        "text": value,
-                        "is_verified": True,
-                        "translation_source": "system",
-                        "translation_status": "reviewed",
-                    },
+            for field in TRANSLATABLE_MODELS["Referral"]["fields"]:
+                created = self._ensure_translation(
+                    referral,
+                    english,
+                    field,
+                    getattr(referral, field, "") or "",
+                    source="system",
                 )
-                created_count += 1 if created else 0
-                updated_count += 0 if created else 1
+                if created is True:
+                    created_count += 1
+                elif created is False:
+                    existing_count += 1
 
         for policy in PolicyUpdate.objects.filter(is_active=True):
-            for field in ("title", "summary"):
-                value = getattr(policy, field, "") or ""
-                if not value:
-                    continue
-                _, created = ContentTranslation.objects.update_or_create(
-                    language=english,
-                    content_type=ContentType.objects.get_for_model(PolicyUpdate),
-                    object_id=policy.pk,
-                    field=field,
-                    defaults={
-                        "text": value,
-                        "is_verified": True,
-                        "translation_source": "system",
-                        "translation_status": "reviewed",
-                    },
+            for field in TRANSLATABLE_MODELS["PolicyUpdate"]["fields"]:
+                created = self._ensure_translation(
+                    policy,
+                    english,
+                    field,
+                    getattr(policy, field, "") or "",
+                    source="system",
                 )
-                created_count += 1 if created else 0
-                updated_count += 0 if created else 1
+                if created is True:
+                    created_count += 1
+                elif created is False:
+                    existing_count += 1
 
         self.stdout.write(
             self.style.SUCCESS(f"Content translations created: {created_count}")
         )
         self.stdout.write(
-            self.style.SUCCESS(f"Content translations updated: {updated_count}")
+            self.style.SUCCESS(f"Content translations already present: {existing_count}")
         )
 
+    def _setup_family_translations(self):
+        """Seed Luganda, Ateso and Acholi Family translations without overwriting."""
+        self.stdout.write("Setting up Family translations...")
+
+        family = LegalCategory.objects.filter(slug="family").first()
+        if family is None:
+            self.stdout.write(self.style.WARNING("Family category missing; skipping."))
+            return
+
+        created_count = 0
+        existing_count = 0
+
+        for language_code, fields in FAMILY_CATEGORY_I18N.items():
+            language = self.language_objects.get(language_code)
+            if language is None:
+                continue
+            for field, text in fields.items():
+                created = self._ensure_translation(family, language, field, text)
+                if created is True:
+                    created_count += 1
+                elif created is False:
+                    existing_count += 1
+
+        for source_name, names in FAMILY_SOURCE_I18N.items():
+            source = LegalSource.objects.filter(name=source_name).first()
+            if source is None:
+                continue
+            for language_code, text in names.items():
+                language = self.language_objects.get(language_code)
+                if language is None:
+                    continue
+                created = self._ensure_translation(source, language, "name", text)
+                if created is True:
+                    created_count += 1
+                elif created is False:
+                    existing_count += 1
+
+        content_fields = TRANSLATABLE_MODELS["LegalContent"]["fields"]
+        for topic in LegalTopic.objects.filter(category=family, is_active=True):
+            legal_content = LegalContent.objects.filter(
+                topic=topic, language__code="en"
+            ).first()
+            for language_code in ("lg", "teo", "ach"):
+                language = self.language_objects.get(language_code)
+                if language is None:
+                    continue
+                packed = translation_fields_for_topic(topic.slug, language_code)
+                if packed.get("name"):
+                    created = self._ensure_translation(
+                        topic, language, "name", packed["name"]
+                    )
+                    if created is True:
+                        created_count += 1
+                    elif created is False:
+                        existing_count += 1
+                if legal_content is None:
+                    continue
+                for field in content_fields:
+                    created = self._ensure_translation(
+                        legal_content, language, field, packed.get(field, "")
+                    )
+                    if created is True:
+                        created_count += 1
+                    elif created is False:
+                        existing_count += 1
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Family translations created: {created_count}")
+        )
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Family translations already present: {existing_count}"
+            )
+        )
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS("MANYA setup completed successfully."))
+
+    @staticmethod
+    def _ensure_translation(obj, language, field, text, source="manual"):
+        """Create a translation if missing. Never overwrite an existing row.
+
+        Returns True if created, False if already present, None if skipped.
+        """
+        if obj is None or language is None or not field or not (text or "").strip():
+            return None
+        _, created = ContentTranslation.objects.get_or_create(
+            language=language,
+            content_type=ContentType.objects.get_for_model(obj),
+            object_id=obj.pk,
+            field=field,
+            defaults={
+                "text": text,
+                "is_verified": True,
+                "translation_source": source,
+                "translation_status": "reviewed",
+            },
+        )
+        return created

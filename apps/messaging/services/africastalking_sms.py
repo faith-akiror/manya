@@ -171,13 +171,34 @@ def split_sms_message(text: str, limit: int = SMS_PART_LIMIT) -> list[str]:
 
 
 def build_content_sms(content, include_next_step: bool = True) -> str:
-    """Compose the concise, language-aware SMS summary for a LegalContent."""
+    """Compose the concise English SMS summary for a LegalContent."""
     lines = [f"MANYA — {content.title}"]
     if content.summary:
         lines.append(content.summary.strip())
     if include_next_step and content.next_steps:
         lines.append(f"Next step: {content.next_steps.strip()}")
     lines.append("This is general legal information, not legal advice.")
+    return "\n".join(lines)
+
+
+def build_translated_content_sms(
+    content, language_code: str, include_next_step: bool = True
+) -> str:
+    """Compose SMS through the central translation service (DB -> Sunbird -> EN)."""
+    from apps.languages.services.translation_service import TranslationService
+
+    title = TranslationService.get_content(content, "title", language_code)
+    summary = TranslationService.get_content(content, "summary", language_code)
+    next_steps = TranslationService.get_content(content, "next_steps", language_code)
+    next_label = TranslationService.get_text("sms_next_step", language_code)
+    disclaimer = TranslationService.get_text("sms_disclaimer", language_code)
+
+    lines = [f"MANYA — {title}"]
+    if summary:
+        lines.append(summary.strip())
+    if include_next_step and next_steps:
+        lines.append(f"{next_label}: {next_steps.strip()}")
+    lines.append(disclaimer)
     return "\n".join(lines)
 
 

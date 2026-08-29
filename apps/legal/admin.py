@@ -122,9 +122,10 @@ class LegalContentInline(admin.TabularInline):
 class LegalCategoryAdmin(admin.ModelAdmin):
     inlines = [ContentTranslationGenericInline]
     list_display = ("name", "slug", "is_active", "display_order")
+    list_filter = ("is_active",)
     list_editable = ("is_active", "display_order")
     prepopulated_fields = {"slug": ("name",)}
-    search_fields = ("name",)
+    search_fields = ("name", "slug", "description")
 
 
 @admin.register(LegalTopic)
@@ -143,12 +144,20 @@ class LegalContentAdmin(admin.ModelAdmin):
     list_display = (
         "title",
         "topic",
+        "category",
         "language",
         "verification_status",
         "last_verified",
         "updated_at",
     )
-    list_filter = ("verification_status", "language", "topic__category", "topic")
+    list_filter = (
+        "verification_status",
+        "language",
+        "topic__category",
+        "topic",
+        "topic__is_active",
+        "topic__category__is_active",
+    )
     search_fields = (
         "title",
         "summary",
@@ -184,6 +193,10 @@ class LegalContentAdmin(admin.ModelAdmin):
         ),
     )
     actions = ("mark_review", "mark_verified", "archive", "generate_translations")
+
+    @admin.display(description="Category", ordering="topic__category")
+    def category(self, obj):
+        return obj.topic.category
 
     def lookup_allowed(self, lookup, value):
         if lookup.split("__")[0] in {"topic", "language", "source", "original_content"}:
