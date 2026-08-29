@@ -260,8 +260,12 @@ class TranslationService:
 
     @staticmethod
     def _persist_content_translation(obj, field, language, text, source, status):
-        """Never overwrite a reviewed/manual translation (checked by caller)."""
-        ContentTranslation.objects.update_or_create(
+        """Store a machine translation only when no row exists.
+
+        Never overwrite an administrator-approved, reviewed, or manual
+        translation — including unverified drafts the admin is still editing.
+        """
+        ContentTranslation.objects.get_or_create(
             language=language,
             content_type=ContentType.objects.get_for_model(obj),
             object_id=obj.pk,

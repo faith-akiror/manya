@@ -185,6 +185,37 @@ class SunbirdServiceTests(TestCase):
                 result = TranslationService.get_content(cat, "name", "lg")
                 self.assertEqual(result, "Emirimu (human reviewed)")
                 sb.assert_not_called()
+        row = ContentTranslation.objects.get(
+            language__code="lg", object_id=cat.pk, field="name"
+        )
+        self.assertEqual(row.text, "Emirimu (human reviewed)")
+
+    def test_sunbird_persist_does_not_overwrite_manual_draft(self):
+        cat = first_category()
+        make_translation(
+            cat,
+            "lg",
+            "name",
+            "ADMIN DRAFT",
+            is_verified=False,
+            translation_source="manual",
+            translation_status="machine_translated",
+        )
+        with SUNBIRD_ON:
+            with (
+                patch.object(
+                    SunbirdTranslationService, "is_supported", return_value=True
+                ),
+                patch.object(
+                    SunbirdTranslationService, "translate", return_value="SUNBIRD"
+                ),
+            ):
+                TranslationService.get_content(cat, "name", "lg")
+        row = ContentTranslation.objects.get(
+            language__code="lg", object_id=cat.pk, field="name"
+        )
+        self.assertEqual(row.text, "ADMIN DRAFT")
+        self.assertEqual(row.translation_source, "manual")
 
     def test_free_text_translation_cache(self):
         with SUNBIRD_ON:

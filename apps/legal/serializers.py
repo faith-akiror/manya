@@ -211,6 +211,17 @@ class LegalTopicDetailSerializer(serializers.Serializer):
     def get_available_languages(self, obj):
         return available_languages_for_topic(obj)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        lang = self.context.get("language_code") or "en"
+        if lang and lang != "en":
+            data["name"] = TranslationService.get_content(instance, "name", lang)
+            if data.get("description"):
+                data["description"] = TranslationService.get_content(
+                    instance, "description", lang
+                )
+        return data
+
 
 class LegalTopicListSerializer(serializers.ModelSerializer):
     category = serializers.CharField(source="category.slug", read_only=True)
@@ -229,6 +240,17 @@ class LegalTopicListSerializer(serializers.ModelSerializer):
 
     def get_available_languages(self, obj):
         return available_languages_for_topic(obj)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        lang = self.context.get("language_code") or "en"
+        if lang and lang != "en":
+            data["name"] = TranslationService.get_content(instance, "name", lang)
+            if data.get("description"):
+                data["description"] = TranslationService.get_content(
+                    instance, "description", lang
+                )
+        return data
 
 
 class SearchResultSerializer(serializers.Serializer):

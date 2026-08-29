@@ -25,7 +25,7 @@ from apps.messaging.services.africastalking_sms import (
     SMSConfigurationError,
     SMSService,
     SMSServiceError,
-    build_content_sms,
+    build_translated_content_sms,
 )
 from apps.messaging.services.sms_service import normalize_sms_phone
 
@@ -90,7 +90,7 @@ class SMSAPIView(APIView):
                     },
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            message = build_content_sms(content)
+            message = build_translated_content_sms(content, language_code)
 
         # Remember the phone's language preference (light-touch, no auth).
         language = None

@@ -79,6 +79,11 @@ class TopicListAPIView(generics.ListAPIView):
             .order_by("category__display_order", "display_order")
         )
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["language_code"] = self.request.query_params.get("lang", "en")
+        return context
+
 
 class TopicDetailAPIView(generics.RetrieveAPIView):
     """One topic with content resolved for ``?lang=<code>``.
