@@ -49,6 +49,8 @@ DEFAULT_ENGLISH = {
     "exit": "Thank you for using MANYA.",
     "telephone": "Tel",
     "voice_coming_soon": ("MANYA Voice is coming soon. Please use SMS or the website."),
+    "voice_menu_prompt": "Please press a number, or press 0 to go back.",
+    "voice_repeat_prompt": "Press 1 to hear this again, or press 0 to go back.",
     "system_error": ("We are sorry - something went wrong. Please try again later."),
     "sms_next_step": "Next step",
     "sms_disclaimer": ("This is general legal information, not legal advice."),

@@ -15,6 +15,7 @@ class UssdSession(models.Model):
     CHANNEL_CHOICES = [
         ("ussd", "USSD"),
         ("sms", "SMS"),
+        ("voice", "Voice"),
     ]
 
     session_id = models.CharField(max_length=64, unique=True)

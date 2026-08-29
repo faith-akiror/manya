@@ -1,56 +1,79 @@
-"""Africa's Talking Voice service (MVP abstraction).
+"""Africa's Talking Voice renderer.
 
-Voice is scoped as P2. This service isolates provider integration so Voice can
-never break the website, USSD or SMS. In MVP the service returns a plain-text
-speech intent rendered by Africa's Talking Voice; it can be swapped for a full
-call-session flow later without changing callers.
+This module knows ONLY how to render Africa's Talking Voice XML intents
+(``<Say>``, ``<GetDigits>``, ``<Response>``) and keeps provider details out of
+the callback view and the state machine.
+
+Africa's Talking Voice callback contract
+(https://developers.africastalking.com/docs/voice/handle_calls):
+
+* Africa's Talking POSTs call notifications to the registered callback URL
+  with fields such as ``sessionId``, ``isActive``, ``callerNumber``,
+  ``destinationNumber`` and ``dtmfDigits``.
+* We answer 200 with XML. Actions run in order; only an input action
+  (``<GetDigits>``) triggers the next notification.
+* Returning ``<Response/>`` with no actions ends the call.
+
+Text is rendered with the Google TTS voice from ``AFRICASTALKING_VOICE``
+(default ``en-US-Standard-C``) and every string is XML-escaped.
 """
 
 import logging
 import os
-import re
+import xml.sax.saxutils
 
 logger = logging.getLogger(__name__)
 
-SAFE_TEXT_RE = re.compile(r"[<>]+")
+DEFAULT_VOICE = os.getenv("AFRICASTALKING_VOICE", "en-US-Standard-C")
 
 
-class VoiceConfigurationError(Exception):
-    """Africa's Talking Voice credentials are missing."""
+def xml_escape(text) -> str:
+    """Escape text for XML text nodes / quoted attributes."""
+    return xml.sax.saxutils.escape(str(text or ""), {'"': "&quot;"})
 
 
 class VoiceServiceError(Exception):
-    """Voice could not be rendered."""
+    """A voice intent could not be rendered."""
 
 
 class VoiceService:
-    """Abstraction for Africa's Talking Voice / TTS intents."""
+    """Render Africa's Talking Voice XML intents (TTS + digit capture)."""
 
-    def __init__(self, voice_number=None, api_key=None, environment=None):
-        self.voice_number = voice_number or os.getenv("AFRICASTALKING_VOICE_NUMBER", "")
-        self.api_key = api_key or os.getenv("AFRICASTALKING_API_KEY", "")
-        environment = (
-            environment or os.getenv("AFRICASTALKING_ENVIRONMENT", "sandbox")
-        ).lower()
-        self.environment = (
-            environment if environment in ("production", "sandbox") else "sandbox"
-        )
+    def __init__(self, voice=None, timeout=12):
+        self.voice = voice or DEFAULT_VOICE
+        self.timeout = max(1, int(timeout or 12))
 
-    def is_configured(self) -> bool:
-        return bool(self.voice_number and self.api_key)
-
-    def say(self, text, language_code="en", requester=None, **kwargs) -> str:
-        """Return a Voice/Say intent for ``text`` (MVP plain-text response)."""
-        if not (text or "").strip():
+    def say(self, text) -> str:
+        """``<Say>`` text-to-speech intent for ``text``."""
+        if not str(text or "").strip():
             raise VoiceServiceError("Cannot synthesise empty text.")
-        safe = SAFE_TEXT_RE.sub("", (text or "")[:400])
-        return safe
+        return f'<Say voice="{xml_escape(self.voice)}">{xml_escape(text)}</Say>'
 
-    def read_content(self, content, language=None, requester=None):
-        """Synthesise a LegalContent (title + summary)."""
-        text = f"{content.title}. {content.summary or ''}".strip()
-        return self.say(
-            text,
-            language_code=(language or getattr(content.language, "code", "en")),
-            requester=requester,
+    def get_digits(self, prompt, callback_url="") -> str:
+        """``<GetDigits>`` captures a single key press from the caller.
+
+        The ``callbackUrl`` falls back to the number's registered callback URL
+        when omitted; we pass it explicitly so the flow survives dashboard
+        re-configuration.
+        """
+        attributes = [
+            f'timeout="{self.timeout}"',
+            'numDigits="1"',
+            'finishOnKey="#"',
+        ]
+        if callback_url:
+            attributes.append(f'callbackUrl="{xml_escape(callback_url)}"')
+        return f"<GetDigits {' '.join(attributes)}>{self.say(prompt)}</GetDigits>"
+
+    def continue_response(self, text, prompt, callback_url="") -> str:
+        """Speak ``text``, then listen for the caller's next digit."""
+        return (
+            f"<Response>{self.say(text)}"
+            f"{self.get_digits(prompt, callback_url)}</Response>"
         )
+
+    def end_response(self, text="") -> str:
+        """End the call (an action-less ``<Response/>`` closes the session)."""
+        if str(text or "").strip():
+            return f"<Response>{self.say(text)}</Response>"
+        return "<Response/>"

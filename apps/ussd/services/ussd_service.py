@@ -258,6 +258,10 @@ class UssdService:
         if text == "5":
             return self._send_sms(session, legal_content)
         if text == "6":
+            if getattr(session, "channel", "ussd") == "voice":
+                # On a live phone call there is nothing to play for "Listen":
+                # re-read the topic options instead of ending the call.
+                return self._menu_topic_options(session, topic)
             return self._voice_prompt(session)
         if text in ("0", "00"):
             return self._menu_categories(session)
