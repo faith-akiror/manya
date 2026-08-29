@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MANYA dashboard</title>
+  <style>
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --accent: #3B82F6;
+      --ink: #E2E8F0;
+      --muted: #94A3B8;
+      --line: #334155;
+      --track: #0F172A;
+      --green: #4ADE80;
+      --green-bg: #14532D;
+      --amber: #FBBF24;
+      --amber-bg: #78350F;
+      --gray: #CBD5E1;
+      --gray-bg: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", Calibri, system-ui, sans-serif;
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 40px 28px 72px;
+    }
+    header {
+      margin-bottom: 28px;
+    }
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+    .tagline {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(59, 130, 246, 0.16);
+      color: var(--ink);
+      border: 1px solid rgba(59, 130, 246, 0.45);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .pill code {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent);
+    }
+    h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      font-weight: 650;
+    }
+    .lede {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .sub {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 28px rgba(2, 6, 23, 0.45);
+    }
+    .category { margin-bottom: 28px; }
+    .category:last-child { margin-bottom: 0; }
+    .category h3 {
+      margin: 0 0 12px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+    .topic {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px 16px;
+      padding: 14px 0;
+      border-top: 1px solid var(--line);
+    }
+    .topic-title { font-weight: 600; }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 650;
+      padding: 4px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .badge-verified { background: var(--green-bg); color: var(--green); }
+    .badge-draft { background: var(--amber-bg); color: var(--amber); }
+    .badge-empty { background: var(--gray-bg); color: var(--gray); }
+    .langs {
+      width: 100%;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .empty {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 0;
+    }
+    .bar-row { margin: 0 0 18px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .bar-count { color: var(--muted); white-space: nowrap; }
+    .bar-track {
+      height: 12px;
+      background: var(--track);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+      min-width: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th {
+      text-align: left;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 600;
+      padding: 0 12px 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    td {
+      padding: 14px 12px 14px 0;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .review {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--amber);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>MANYA</h1>
+      <p class="tagline">Know your rights. Know your next step. — live content and usage</p>
+    </header>
+
+    <section>
+      <h2>Languages</h2>
+      <p class="lede">Active languages currently served across web, USSD and SMS.</p>
+      {% if languages %}
+      <div class="pills" aria-label="Active languages">
+        {% for language in languages %}
+        <span class="pill">{{ language.native_name|default:language.name }}<code>{{ language.code }}</code></span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty">No languages are active yet.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Legal categories and topics</h2>
+      <p class="lede">Verified means a human-approved LegalContent record exists. Draft-only means unpublished or Sunbird-translated text, not yet verified.</p>
+      {% if categories %}
+        {% for category in categories %}
+        <div class="category">
+          <h3>{{ category.name }}</h3>
+          {% if category.topics %}
+            {% for topic in category.topics %}
+            <div class="topic">
+              <span class="topic-title">{{ topic.title }}</span>
+              {% if topic.status == "verified" %}
+              <span class="badge badge-verified">Verified</span>
+              {% elif topic.status == "draft" %}
+              <span class="badge badge-draft">Draft only</span>
+              {% else %}
+              <span class="badge badge-empty">No content yet</span>
+              {% endif %}
+              <div class="langs">
+                {% if topic.verified_languages %}
+                  Verified:
+                  {% for lang in topic.verified_languages %}
+                    {{ lang.label }} ({{ lang.code }}){% if not forloop.last %}, {% endif %}
+                  {% endfor %}
+                {% else %}
+                  Verified: none
+                {% endif %}
+                ·
+                {% if topic.draft_languages %}
+                  Machine / draft:
+                  {% for lang in topic.draft_languages %}
+                    {{ lang.label }} ({{ lang.code }}){% if not forloop.last %}, {% endif %}
+                  {% endfor %}
+                {% else %}
+                  Machine / draft: none
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <p class="empty">No topics in this category yet.</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+      <p class="empty">No data yet — no legal categories in the database.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>What people are asking about</h2>
+      <p class="lede">
+        Real selections from USSD and two-way SMS sessions
+        ({{ demand.session_count }} conversation{{ demand.session_count|pluralize }},
+        {{ demand.sms_count }} inbound SMS).
+        Each bar is how many sessions chose that topic.
+      </p>
+      {% if demand.bars %}
+        {% for row in demand.bars %}
+        <div class="bar-row">
+          <div class="bar-meta">
+            <span>{{ row.category }} · {{ row.title }}</span>
+            <span class="bar-count">{{ row.count }} session{{ row.count|pluralize }}</span>
+          </div>
+          <div class="bar-track" aria-hidden="true">
+            <div class="bar-fill" style="width: {{ row.percent }}%;"></div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <p class="empty">
+        {% if demand.session_count or demand.sms_count %}
+          No data yet — {{ demand.session_count }} conversation{{ demand.session_count|pluralize }}
+          and {{ demand.sms_count }} inbound SMS are stored, but nobody has selected a topic so far.
+        {% else %}
+          No data yet — no USSD or SMS conversations have been recorded.
+        {% endif %}
+      </p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <p class="lede">Active legal sources currently cited in the database.</p>
+      {% if sources %}
+      <table>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Authority</th>
+            <th>Last verified</th>
+            <th>Next review</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for source in sources %}
+          <tr>
+            <td>
+              {{ source.name }}
+              {% if source.organization %}<div class="sub">{{ source.organization }}</div>{% endif %}
+            </td>
+            <td>Level {{ source.authority_level }}<div class="sub">{{ source.authority_label }}</div></td>
+            <td>
+              {% if source.last_verified_at %}
+                {{ source.last_verified_at|date:"d M Y" }}
+              {% else %}
+                Not yet verified
+              {% endif %}
+              {% if source.requires_review %}<div class="review">Review due</div>{% endif %}
+            </td>
+            <td>
+              {% if source.next_review_date %}
+                {{ source.next_review_date|date:"d M Y" }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No data yet — no active legal sources in the database.</p>
+      {% endif %}
+    </section>
+  </div>
+</body>
+</html>

@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.ussd",
     "apps.messaging",
     "apps.voice",
+    "apps.dashboard",
 ]
 
 MIDDLEWARE = [
