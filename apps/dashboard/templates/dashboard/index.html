@@ -183,6 +183,52 @@
       font-size: 12px;
       color: var(--amber);
     }
+    .btn {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 10px 18px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 650;
+      font-size: 14px;
+      border-radius: 10px;
+    }
+    .btn:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 3px;
+    }
+    .note {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .will-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+    .will-card {
+      background: var(--track);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 22px 24px;
+    }
+    .will-card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      font-weight: 650;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--ink);
+    }
+    .will-card .lede {
+      margin-bottom: 16px;
+    }
+    @media (max-width: 760px) {
+      .will-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -204,6 +250,44 @@
       {% else %}
       <p class="empty">No languages are active yet.</p>
       {% endif %}
+    </section>
+
+    <section>
+      <h2>Succession and Wills</h2>
+      <p class="lede">Practical next steps for writing a will and for when a will is challenged.</p>
+      <div class="will-grid">
+        <article class="will-card">
+          <h3>Plan Your Succession</h3>
+          <p class="lede">
+            Most inheritance disputes in Uganda happen because no will was ever written.
+            Start a draft will in a few minutes.
+          </p>
+          <a
+            class="btn"
+            href="https://will-generator.jessemwegs.dev/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Start Your Will</a>
+          <p class="note">This opens an external tool. MANYA does not store or see the information you enter there.</p>
+        </article>
+        <article class="will-card">
+          <h3>What to do if a will is disputed or ignored</h3>
+          <p class="lede">
+            If you believe a will is fake, unfair, or wasn't signed
+            properly, you can lodge a caveat at court before probate is
+            granted. This stops the executor from acting until a judge hears
+            your objection. If someone dies without a valid will, the estate
+            is divided by a fixed legal formula instead of family agreement,
+            which is why disputes and property grabbing from widows and
+            children are common. Executors must file an inventory and account
+            for the estate to the court and the Administrator General, they
+            cannot simply ignore the will. For help, contact the Administrator
+            General's office in Kampala or Justice Centres Uganda's free legal
+            aid line.
+          </p>
+          <p class="note">Source: Succession Act, Cap 162, and the Succession (Amendment) Act 2022</p>
+        </article>
+      </div>
     </section>
 
     <section>

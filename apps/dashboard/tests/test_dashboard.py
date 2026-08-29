@@ -159,3 +159,30 @@ class DashboardViewTests(TestCase):
         response = self.client.get("/dashboard/")
         self.assertContains(response, "nobody has selected a topic")
         self.assertContains(response, "1 inbound SMS")
+
+    def test_succession_and_wills_section_renders_both_cards(self):
+        response = self.client.get("/dashboard/")
+        self.assertContains(response, "Succession and Wills")
+        self.assertContains(response, "Plan Your Succession")
+        self.assertContains(response, "Start Your Will")
+        self.assertContains(response, "https://will-generator.jessemwegs.dev/")
+        self.assertContains(response, 'target="_blank"')
+        self.assertContains(
+            response,
+            "MANYA does not store or see the information you enter there.",
+        )
+        self.assertContains(response, "What to do if a will is disputed or ignored")
+        self.assertContains(response, "lodge a caveat at court before probate")
+        self.assertContains(
+            response,
+            "Source: Succession Act, Cap 162, and the Succession (Amendment) Act 2022",
+        )
+        response = self.client.get("/dashboard/")
+        self.assertContains(response, "Plan Your Succession")
+        self.assertContains(response, "Start Your Will")
+        self.assertContains(response, "https://will-generator.jessemwegs.dev/")
+        self.assertContains(response, 'target="_blank"')
+        self.assertContains(
+            response,
+            "MANYA does not store or see the information you enter there.",
+        )
